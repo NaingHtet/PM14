@@ -18,11 +18,15 @@ int main() {
         printf ("error");
         return;
 	}
-
-	write (fd, "S0217R02P", 9);
+	int n;
+	n = write (fd, "S0217R02P", 9);
+	if (n < 0)
+    	fputs("write() of 4 bytes failed!\n", stderr);
+  	else
+    	printf ("Write succeed n = %i\n", n );
+  	
   	char *buf;
- 
-  	int n = read( fd, buf, 1 );
+  	n = read( fd, buf, 1 );
  
   	if ( n == -1 )
       	printf ( "Error = %s\n", strerror( errno ) ); 
