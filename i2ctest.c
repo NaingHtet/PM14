@@ -19,7 +19,7 @@ int main() {
         return;
 	}
 	int n;
-	n = write (fd, "S0217R02P", 9);
+	n = write (fd, "G3S0217R02P", 11);
 	if (n < 0)
       	printf ( "Write Error = %s\n", strerror( errno ) ); 
   	else
