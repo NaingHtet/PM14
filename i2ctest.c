@@ -21,7 +21,7 @@ int main() {
 	int n;
 	n = write (fd, "S0217R02P", 9);
 	if (n < 0)
-    	fputs("write() of 4 bytes failed!\n", stderr);
+      	printf ( "Write Error = %s\n", strerror( errno ) ); 
   	else
     	printf ("Write succeed n = %i\n", n );
   	
