@@ -3,8 +3,8 @@
  */
 
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
@@ -12,14 +12,21 @@
 int main() {
 	char *port = "/dev/i2c-0";
 
-	int fd = open (port, O_RDWR | O_NOCTTY | O_SYNC);
+	int fd = open (port, O_RDWR);
 	if (fd < 0)
 	{
         printf ("error");
         return;
 	}
+
+ 	if (ioctl(fd, I2C_SLAVE, "G3") < 0) {
+      	printf ( "Address Error = %s\n", strerror( errno ) ); 
+    	return;
+  	}
+
+
 	int n;
-	n = write (fd, "G3S0217R02P", 11);
+	n = write (fd, "S0217R02P", 9);
 	if (n < 0)
       	printf ( "Write Error = %s\n", strerror( errno ) ); 
   	else
