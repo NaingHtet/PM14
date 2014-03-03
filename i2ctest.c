@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <errno.h>
+
 int main() {
 	char *port = "/dev/i2c-0";
 
@@ -23,8 +25,7 @@ int main() {
   	int n = read( fd, buf, 1 );
  
   	if ( n == -1 )
-	    printf ( "Error reading" );
- 
+      	printf ( "Error = %s\n", strerror( errno ) ); 
   	printf ( "Number of bytes to be read = %i\n", n );
   	printf ( "Buf = %s\n", buf );
  
