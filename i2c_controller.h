@@ -4,7 +4,7 @@ static const int VOLTAGE_BYTES = 2;
 static const int VOLTAGE_CMD = 0x17;
 
 int addr;
-int fd;
+int i2c_fd;
 
 int open_i2c_port();
 int set_i2c_address(int _addr);
