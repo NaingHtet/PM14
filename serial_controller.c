@@ -2,6 +2,13 @@
 #include <stdint.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <errno.h>
+
+int fd;
+static const char PORTNAME[] = "/dev/ttyS1";
 
 void enable_serial_fpga() {
 	int mem = open("/dev/mem", O_RDWR|O_SYNC);
@@ -17,6 +24,42 @@ void enable_serial_fpga() {
 	close(fpga);
 }
 
+void open_serial_port() {
+	fd = open( PORTNAME, O_RDWR);
+	if ( fd < 0 ) {
+		printf("Error Opening serial port");
+		exit(1);
+	}
+}
+void write_serial(char* buf, int no_wr_bytes) {
+	int n = write(fd, buf, no_wr_bytes);
+	if (n < 0) {
+		printf("Error writing = %s\n", strerror( errno));
+		exit(1);
+	}
+}
+
+int read_serial(char* rd_buf, int no_rd_bytes) {
+	int n = read(fd, rd_buf, no_rd_bytes);
+	if (n < 0) {
+		printf("Error reading = %s\n", strerror( errno));
+		exit(1);
+	}
+	return n;
+}
+
+
+
 int main()	{
 	enable_serial_fpga();
+	open_serial_port();
+	while(1) {
+		char buffer[100];
+		int n = read_serial(buffer, sizeof(buffer));
+		buffer[n] = '\0';
+		printf("%s\n", buffer);
+
+		char ack[] = "ACK!";
+		write_serial(ack, 4);
+	}
 }
