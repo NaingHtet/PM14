@@ -19,33 +19,35 @@ int main() {
         return;
 	}
 
-	int addr = 0x02;
+	int addr = 0x00;
  	if (ioctl(fd, I2C_SLAVE, addr) < 0) {
       	printf ( "Address Error = %s\n", strerror( errno ) ); 
     	return;
   	}
 
+	char buf[3];
+	buf[0] = 0x01;
+	buf[1] = 0x02;
 
-	int n;
-	/**
-	n = write (fd, "S0217R02P", 9);
+buf[2] = 0x02;
+	int n = write (fd,buf,3);
 	if (n < 0)
       	printf ( "Write Error = %s\n", strerror( errno ) ); 
   	else
     	printf ("Write succeed n = %i\n", n );
-  	
-  	char *buf;
-  	**/
-  	char buf[2];
-  	buf[0]= 'F';
-  	buf[1]= 'E';
-  	buf[2]= '\0';
-  	n = read( fd, buf, 2 );
+  	/**
+  	char rbuf[2];
+  	rbuf[0]= 'F';
+  	rbuf[1]= 'E';
+  	rbuf[2]= '\0';
+  	n = read( fd, rbuf, 2);
  
   	if ( n == -1 )
       	printf ( "Error = %s\n", strerror( errno ) ); 
   	printf ( "Number of bytes to be read = %i\n", n );
-  	printf ( "Buf = %s\n", buf );
-  	close( fd );
+  	printf ( "Buf = %02x\n", rbuf[0] );
+	printf ( "2Buf = %02x\n", rbuf[1] );
+	**/
+close( fd );
 
 }
