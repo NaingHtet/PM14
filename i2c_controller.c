@@ -57,6 +57,7 @@ double get_voltage() {
 
 	uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
 	printf("%x\n", v_int);
+	printf("double = %f\n", v_int);
 	return (double)v_int;
 }
 

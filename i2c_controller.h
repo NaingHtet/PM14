@@ -1,7 +1,7 @@
 static const char I2C_PORTNAME[] = "/dev/i2c-0";
 
 static const int VOLTAGE_BYTES = 2;
-static const int VOLTAGE_CMD = 0x17;
+static const int VOLTAGE_CMD = 0x10;
 
 int addr;
 int i2c_fd;
