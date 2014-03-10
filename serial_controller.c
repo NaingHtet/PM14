@@ -24,14 +24,14 @@ void enable_serial_fpga() {
 }
 
 void open_serial_port() {
-	fd = open( SERIAL_PORTNAME, O_RDWR);
-	if ( fd < 0 ) {
+	i2c_fd = open( SERIAL_PORTNAME, O_RDWR);
+	if ( i2c_fd < 0 ) {
 		printf("Error Opening serial port");
 		exit(1);
 	}
 }
 void write_serial(char* buf, int no_wr_bytes) {
-	int n = write(fd, buf, no_wr_bytes);
+	int n = write(i2c_fd, buf, no_wr_bytes);
 	if (n < 0) {
 		printf("Error writing = %s\n", strerror( errno));
 		exit(1);
@@ -39,7 +39,7 @@ void write_serial(char* buf, int no_wr_bytes) {
 }
 
 int read_serial(char* rd_buf, int no_rd_bytes) {
-	int n = read(fd, rd_buf, no_rd_bytes);
+	int n = read(i2c_fd, rd_buf, no_rd_bytes);
 	if (n < 0) {
 		printf("Error reading = %s\n", strerror( errno));
 		exit(1);
