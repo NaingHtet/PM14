@@ -24,8 +24,8 @@ int main() {
 		double d = get_voltage();
 
 		char wbuf[50];
-		printf("main: %x\n", (uint16_t)d);
-		sprintf(wbuf, "%x", (uint16_t)d);
-		write_serial(wbuf, 2);
+		printf("main: %x\n", d);
+		sprintf(wbuf, "%06.3f", d);
+		write_serial(wbuf, 6);
 	}
 }
