@@ -7,8 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-int fd;
-static const char PORTNAME[] = "/dev/ttyS1";
+#include "serial_controller.h"
 
 void enable_serial_fpga() {
 	int mem = open("/dev/mem", O_RDWR|O_SYNC);
@@ -25,7 +24,7 @@ void enable_serial_fpga() {
 }
 
 void open_serial_port() {
-	fd = open( PORTNAME, O_RDWR);
+	fd = open( SERIAL_PORTNAME, O_RDWR);
 	if ( fd < 0 ) {
 		printf("Error Opening serial port");
 		exit(1);
@@ -48,18 +47,3 @@ int read_serial(char* rd_buf, int no_rd_bytes) {
 	return n;
 }
 
-
-
-int main()	{
-	enable_serial_fpga();
-	open_serial_port();
-	while(1) {
-		char buffer[100];
-		int n = read_serial(buffer, sizeof(buffer));
-		buffer[n] = '\0';
-		printf("%s\n", buffer);
-
-		char ack[] = "ACK!";
-		write_serial(ack, 4);
-	}
-}

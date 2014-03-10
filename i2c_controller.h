@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <linux/i2c.h>
-#include <linux/i2c-dev.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <stdint.h>
-
-static const char PORTNAME[] = "/dev/i2c-0";
+static const char I2C_PORTNAME[] = "/dev/i2c-0";
 
 static const int VOLTAGE_BYTES = 2;
 static const int VOLTAGE_CMD = 0x17;
