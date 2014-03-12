@@ -55,9 +55,9 @@ double get_voltage() {
 	char v_str[VOLTAGE_BYTES];
 	rdwr_i2c(VOLTAGE_CMD, v_str, VOLTAGE_BYTES);
 
-	double v_d = v_str[0] << 8 + v_str[1];
-	v_d = v_d * 2;
-
+	double v_d = v_str[0] << 8;
+	v_d = v_d + v_str[1];
+	v_d = v_d * 2 / 100;
 	//uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
 	printf("%x\n", v_d);
 	return v_d;
