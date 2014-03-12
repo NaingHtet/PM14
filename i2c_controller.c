@@ -18,7 +18,7 @@ int open_i2c_port() {
 }
 
 int set_i2c_address(int _addr) {
-	addr = 0x01;
+	addr = 0x03;
 	int io = ioctl(i2c_fd, I2C_SLAVE, addr);
 	if (io < 0) {
 		printf("Error setting i2c address");
@@ -55,8 +55,7 @@ double get_voltage() {
 	char v_str[VOLTAGE_BYTES];
 	rdwr_i2c(VOLTAGE_CMD, v_str, VOLTAGE_BYTES);
 
-	double v_d = v_str[0] << 8;
-	v_d = v_d + v_str[1];
+	double v_d = ((uint16_t)v_str[0] << 8) + v_str[1];
 	v_d = v_d * 2 / 100;
 	//uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
 	printf("%x\n", v_d);
