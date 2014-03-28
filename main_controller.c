@@ -11,21 +11,34 @@
 #include "serial_controller.h"
 
 int main() {
+
 	enable_serial_fpga();
 	open_serial_port();
+	
+	//we are not communcting to address 0x02
 	open_i2c_port();
 	set_i2c_address(0x02);
+	
 	while(1) {
 		char buffer[100];
 		int n = read_serial(buffer, sizeof(buffer));
+		
 		buffer[n] = '\0';
-		printf("%s\n", buffer);
+		printf("Command from serial : %s\n", buffer);
 
-		double d = get_voltage();
-
+		char answer[] = "1 V? 1";
 		char wbuf[50];
-		printf("main: %x\n", d);
-		sprintf(wbuf, "%06.3f", d);
-		write_serial(wbuf, 6);
+		int len = 0;
+		if (strcmp(buffer,answer) != 0) {
+			sprintf(wbuf, "1 EBADCMD");
+			len = 9;
+		} else {
+			write_serial("1 OK", 4);
+			double d = get_voltage();
+			printf("Voltage received from BMS. Voltage is:%06.3f\n", d);
+			sprintf(wbuf, "%06.3f", d);
+			len = 6;
+		}
+		write_serial(wbuf, len);
 	}
 }
