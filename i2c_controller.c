@@ -68,3 +68,11 @@ double get_voltage() {
 	return v_d;
 }
 
+//Get test code from device
+double get_testcode() {
+	char test_str[TEST_BYTES];
+	rdwr_i2c(TEST_CMD, test_str, TEST_BYTES);
+
+	double t_d = ((uint16_t)test_str[0] << 8) + test_str[1];
+	return t_d;
+}
