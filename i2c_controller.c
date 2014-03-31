@@ -20,8 +20,7 @@ int open_i2c_port() {
 
 //Set the address of the i2c device we want to communicate
 int set_i2c_address(int _addr) {
-	addr = 0x03;
-	int io = ioctl(i2c_fd, I2C_SLAVE, addr);
+	int io = ioctl(i2c_fd, I2C_SLAVE, _addr);
 	if (io < 0) {
 		printf("Error setting i2c address");
 		exit(1);

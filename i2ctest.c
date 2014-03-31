@@ -16,12 +16,19 @@ int main() {
   //we are not communcting to address 0x02
   open_i2c_port();
   set_i2c_address(0x02);
-  
+  int count = 0;
+  int err = 0;
   while(1) {
-    double d = get_voltage();
-    printf("%06.3f\n", d);
-  
+    //double d = get_voltage();
+    //printf("%06.3f\n", d);
+    count++;
     double d = get_testcode();
-    printf("%x\n", d);
+    if ( d != 66.0) {
+        err++;
+	printf("%f\n", d);
+    }
+    if (count%1000 == 0) {
+        printf("Count:%d , err:%d\n", count, err);
+    }
   }
 }
