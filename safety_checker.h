@@ -1,0 +1,1 @@
+void *check_safety(void *arg);
