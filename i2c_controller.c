@@ -18,6 +18,8 @@ static const int TEST_CMD = 0x17;
 static const int TEMP_BYTES = 2;
 static const int TEMP_CMD = 0x17;
 
+int i2c_fd;
+
 //Open the i2c port
 int open_i2c_port() {
 	i2c_fd = open( I2C_PORTNAME, O_RDWR);
@@ -29,6 +31,7 @@ int open_i2c_port() {
 
 //Set the address of the i2c device we want to communicate
 int set_i2c_address(int _addr) {
+	addr = _addr;
 	int io = ioctl(i2c_fd, I2C_SLAVE, _addr);
 	if (io < 0) {
 		printf("Error setting i2c address");
@@ -74,15 +77,16 @@ void read_i2c(char* rd_buf, int no_rd_bytes) {
 		for (i = 0; i < no_rd_bytes ; i++) {
 			if ( rd_buf[i] != 0 ) {
 				allzero = 0;
-				fprintf(stderr, "I2C has just read all zero.\n");
 				break;
 			} 
 		}
+		if (allzero) fprintf(stderr, "I2C has just read all zero.\n");
 	} while (allzero);
 }
 
 //Get the voltage from device
-double get_voltage() {
+double get_voltage(int addr) {
+	set_i2c_address(addr);
 	char r_str[VOLTAGE_BYTES];
 	rdwr_i2c(VOLTAGE_CMD, r_str, VOLTAGE_BYTES);
 
@@ -95,6 +99,15 @@ double get_voltage() {
 	// printf("%x\n", v_d);
 
 
+	return r_d;
+}
+
+double* get_voltage_all() {
+	double r_d[i2c_count];
+	int i;
+	for ( i = 0 ; i < i2c_count ; i++ ) {
+		r_d[i] = get_voltage(i2c_addr[i]) ;
+	}
 	return r_d;
 }
 

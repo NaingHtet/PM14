@@ -1,8 +1,7 @@
 static const char I2C_PORTNAME[] = "/dev/i2c-0";
 
-
-
-int addr;
+int i2c_count;
+int i2c_addr[];
 int i2c_fd;
 
 int open_i2c_port();
