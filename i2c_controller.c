@@ -10,18 +10,19 @@
 #include "i2c_controller.h"
 
 static const int VOLTAGE_BYTES = 2;
-static const int VOLTAGE_CMD = 0x10;
+static const char VOLTAGE_CMD = 0x10;
 
 static const int TEST_BYTES = 2;
-static const int TEST_CMD = 0x17;
+static const char TEST_CMD = 0x17;
 
 static const int TEMP_BYTES = 2;
-static const int TEMP_CMD = 0x17;
+static const char TEMP_CMD = 0x17;
 
 int i2c_fd;
 
+
 //Open the i2c port
-int open_i2c_port() {
+void open_i2c_port() {
 	i2c_fd = open( I2C_PORTNAME, O_RDWR);
 	if ( i2c_fd < 0 ) {
 		printf("Error Opening i2c port");
@@ -29,10 +30,12 @@ int open_i2c_port() {
 	}
 }
 
+int cur_addr = 0;
 //Set the address of the i2c device we want to communicate
-int set_i2c_address(int _addr) {
-	addr = _addr;
-	int io = ioctl(i2c_fd, I2C_SLAVE, _addr);
+void set_i2c_address(int addr) {
+	if ( cur_addr == addr) return;
+	else cur_addr = addr;
+	int io = ioctl(i2c_fd, I2C_SLAVE, addr);
 	if (io < 0) {
 		printf("Error setting i2c address");
 		exit(1);
@@ -89,11 +92,10 @@ double get_voltage(int addr) {
 	set_i2c_address(addr);
 	char r_str[VOLTAGE_BYTES];
 	rdwr_i2c(VOLTAGE_CMD, r_str, VOLTAGE_BYTES);
-
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 
 	//CALIBRATION
-
+	r_d = 
 	// v_d = v_d * 2 / 1000;
 	// //uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
 	// printf("%x\n", v_d);
@@ -112,7 +114,8 @@ double* get_voltage_all() {
 }
 
 //Get test code from device
-double get_testcode() {
+double get_testcode(int addr) {
+	set_i2c_address(addr);
 	char r_str[TEST_BYTES];
 	rdwr_i2c(TEST_CMD, r_str, TEST_BYTES);
 
@@ -120,10 +123,20 @@ double get_testcode() {
 	return r_d;
 }
 
-double get_temperature() {
+double get_temperature(int addr) {
+	set_i2c_address(addr);
 	char r_str[TEMP_BYTES];
 	rdwr_i2c(TEMP_CMD, r_str, TEMP_BYTES);
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 	return r_d;
+}
+
+void set_bypass_state(int addr, char state) {
+	set_i2c_address(addr);
+	char buf[3];
+	buf[0] = 0x00;
+	buf[1] = 0x00;
+	buf[2] = state;
+	write_i2c(buf, 3);
 }
