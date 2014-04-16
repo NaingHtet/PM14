@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdint.h>
+#include <pthread.h>
 
 #include "i2c_controller.h"
 
@@ -19,7 +20,7 @@ static const int TEMP_BYTES = 2;
 static const char TEMP_CMD = 0x17;
 
 int i2c_fd;
-
+pthread_mutex_t lock;
 
 //Open the i2c port
 void open_i2c_port() {
@@ -28,6 +29,14 @@ void open_i2c_port() {
 		printf("Error Opening i2c port");
 		exit(1);
 	}
+}
+
+void initiate_mutex() {
+	if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        printf("\n mutex init failed\n");
+        exit(1);
+    }
 }
 
 int cur_addr = 0;
@@ -90,11 +99,17 @@ void rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
 
 //Get the voltage from device
 double get_voltage(int addr) {
+
+    pthread_mutex_lock(&lock);
+    //LOCKED
 	set_i2c_address(addr);
 	char r_str[VOLTAGE_BYTES];
 	rdwr_i2c(VOLTAGE_CMD, r_str, VOLTAGE_BYTES);
-	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
+	//UNLOCKED
+    pthread_mutex_unlock(&lock);
 
+	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
+	r_d = r_d * 6 / 1000;
 	//CALIBRATION
 	// v_d = v_d * 2 / 1000;
 	// //uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
@@ -113,28 +128,41 @@ void get_voltage_all(double* r_d) {
 
 //Get test code from device
 double get_testcode(int addr) {
-	set_i2c_address(addr);
+    pthread_mutex_lock(&lock);
+    //LOCKED
+    set_i2c_address(addr);
 	char r_str[TEST_BYTES];
 	rdwr_i2c(TEST_CMD, r_str, TEST_BYTES);
+	//UNLOCKED
+    pthread_mutex_unlock(&lock);
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 	return r_d;
 }
 
 double get_temperature(int addr) {
-	set_i2c_address(addr);
+    pthread_mutex_lock(&lock);
+    //LOCKED
+  	set_i2c_address(addr);
 	char r_str[TEMP_BYTES];
 	rdwr_i2c(TEMP_CMD, r_str, TEMP_BYTES);
+	//UNLOCKED
+    pthread_mutex_unlock(&lock);
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 	return r_d;
 }
 
 void set_bypass_state(int addr, char state) {
+    pthread_mutex_lock(&lock);
+    //LOCKED
 	set_i2c_address(addr);
 	char buf[3];
 	buf[0] = 0x00;
 	buf[1] = 0x00;
 	buf[2] = state;
 	write_i2c(buf, 3);
+	//UNLOCKED
+    pthread_mutex_unlock(&lock);
+
 }

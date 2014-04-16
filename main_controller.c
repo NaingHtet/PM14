@@ -44,43 +44,41 @@ void loadConfig() {
     }
     else fprintf (stderr, "No 'i2c_address' in configuration file");
 
+    setting = config_lookup(&cfg, "safebounds");
+    if (setting != NULL)
+    {
+    	if (config_setting_lookup_float(setting, "voltage.high", &SAFE_V_HIGH) == CONFIG_FALSE) 
+    		fprintf (stderr, "Cannot lookup voltage.high\n");
+    	if (config_setting_lookup_float(setting, "voltage.low", &SAFE_V_LOW) == CONFIG_FALSE) 
+    		fprintf (stderr, "Cannot lookup voltage.low\n");
+    }
+    else fprintf (stderr, "No 'safebounds' in configuration file");
+
+    printf("%f\n" , SAFE_V_HIGH);
+	SAFE_T_HIGH = 100;
+	SAFE_T_LOW = 0;
+	PACK_NO = 1;
+
+	config_destroy(&cfg);
 }
 
 int main() {
 
 	loadConfig();
+	/**
 	enable_serial_fpga();
 	open_serial_port();
 	
 	open_i2c_port();
 	printf("%d, %d", i2c_count, i2c_addr[0]);
 	
-	pthread_t safety_thread;
+	pthread_t safety_thread, serial_thread;
 	pthread_create(&safety_thread, NULL, check_safety, NULL);
+	
+
+	pthread_create(&serial_thread, NULL, handle_serial, NULL);
 	pthread_join(safety_thread, NULL);
 	
+	**/
 
-	
-	// while(1) {
-	// 	char buffer[100];
-	// 	int n = read_serial(buffer, sizeof(buffer));
-		
-	// 	buffer[n] = '\0';
-	// 	printf("Command from serial : %s\n", buffer);
-
-	// 	char answer[] = "1 V? 1";
-	// 	char wbuf[50];
-	// 	int len = 0;
-	// 	if (strcmp(buffer,answer) != 0) {
-	// 		sprintf(wbuf, "1 EBADCMD");
-	// 		len = 9;
-	// 	} else {
-	// 		write_serial("1 OK", 4);
-	// 		double d = get_voltage();
-	// 		printf("Voltage received from BMS. Voltage is:%06.3f\n", d);
-	// 		sprintf(wbuf, "%06.3f", d);
-	// 		len = 6;
-	// 	}
-	// 	write_serial(wbuf, len);
-	// }
 }
