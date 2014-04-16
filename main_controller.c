@@ -47,7 +47,7 @@ void loadConfig() {
     setting = config_lookup(&cfg, "safebounds");
     if (setting != NULL)
     {
-    	if (config_setting_lookup_float(setting, "voltage.high", &SAFE_V_HIGH) == CONFIG_FALSE) 
+    	if (config_setting_lookup_float(setting, "safebounds.voltage.high", &SAFE_V_HIGH) == CONFIG_FALSE) 
     		fprintf (stderr, "Cannot lookup voltage.high\n");
     	if (config_setting_lookup_float(setting, "voltage.low", &SAFE_V_LOW) == CONFIG_FALSE) 
     		fprintf (stderr, "Cannot lookup voltage.low\n");
