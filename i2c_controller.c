@@ -42,19 +42,6 @@ void set_i2c_address(int addr) {
 	}
 }
 
-//Write command and read immediately
-void rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
-	char wr_buf[1];
-	wr_buf[0] = cmd;
-	//wr_buf[1] = cmd;
-
-	write_i2c( wr_buf, 1);
-	read_i2c(response, no_rd_bytes);
-
-	//TODO(NAING) : remove when AMS firmware bug is gone
-	usleep(100);
-}
-
 //Write data to i2c device
 void write_i2c(char* buf, int no_wr_bytes) {
 	int n = write(i2c_fd, buf, no_wr_bytes);
@@ -87,6 +74,20 @@ void read_i2c(char* rd_buf, int no_rd_bytes) {
 	} while (allzero);
 }
 
+//Write command and read immediately
+void rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
+	char wr_buf[1];
+	wr_buf[0] = cmd;
+	//wr_buf[1] = cmd;
+
+	write_i2c( wr_buf, 1);
+	read_i2c(response, no_rd_bytes);
+
+	//TODO(NAING) : remove when AMS firmware bug is gone
+	usleep(100);
+}
+
+
 //Get the voltage from device
 double get_voltage(int addr) {
 	set_i2c_address(addr);
@@ -95,7 +96,6 @@ double get_voltage(int addr) {
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 
 	//CALIBRATION
-	r_d = 
 	// v_d = v_d * 2 / 1000;
 	// //uint16_t v_int = ((uint16_t)v_str[0] << 8) + v_str[1];
 	// printf("%x\n", v_d);
@@ -104,13 +104,11 @@ double get_voltage(int addr) {
 	return r_d;
 }
 
-double* get_voltage_all() {
-	double r_d[i2c_count];
+void get_voltage_all(double* r_d) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {
 		r_d[i] = get_voltage(i2c_addr[i]) ;
 	}
-	return r_d;
 }
 
 //Get test code from device

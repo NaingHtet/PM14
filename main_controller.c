@@ -12,14 +12,47 @@
 #include "i2c_controller.h"
 #include "serial_controller.h"
 #include "safety_checker.h"
+#include "lib/libconfig.h"
+
+
+void loadConfig() {
+    config_t cfg;
+    config_setting_t *setting;
+    const char *str;
+
+    config_init(&cfg);
+
+    /* Read the file. If there is an error, report it and exit. */
+    if(! config_read_file(&cfg, "pm14.cfg")) {
+        fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg),
+                config_error_line(&cfg), config_error_text(&cfg));
+        config_destroy(&cfg);
+        return;
+    }
+
+    //Read i2c_addresses
+  	setting = config_lookup(&cfg, "i2c_address");
+  	if(setting != NULL)
+  	{
+    	int count = config_setting_length(setting);
+    	int i;
+    	i2c_count = count;
+		i2c_addr = malloc(i2c_count*sizeof(int));
+    	for ( i = 0 ; i < count ; i++ ) {
+    		i2c_addr[i] = config_setting_get_int_elem(setting, i);
+    	}
+    }
+    else fprintf (stderr, "No 'i2c_address' in configuration file");
+
+}
 
 int main() {
 
+	loadConfig();
 	enable_serial_fpga();
 	open_serial_port();
 	
 	open_i2c_port();
-	set_i2c_address(0x02);
 
 	pthread_t safety_thread;
 	pthread_create(&safety_thread, NULL, check_safety, NULL);
