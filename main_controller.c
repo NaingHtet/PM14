@@ -54,11 +54,11 @@ int main() {
 	
 	open_i2c_port();
 	printf("%d, %d", i2c_count, i2c_addr[0]);
-	/**
+	
 	pthread_t safety_thread;
 	pthread_create(&safety_thread, NULL, check_safety, NULL);
 	pthread_join(safety_thread, NULL);
-	**/
+	
 
 	
 	// while(1) {
