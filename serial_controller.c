@@ -65,7 +65,7 @@ void send_ack() {
 void *handle_serial(void *arg) {
 	while(1) {
 		char buffer[1000];
-		char wbuf[50];
+		char wbuf[100];
 		printf("waiting for command \n");
 		int n = read_serial(buffer, sizeof(buffer));
 		buffer[n] = '\0';
@@ -87,11 +87,55 @@ void *handle_serial(void *arg) {
 		token = strtok(NULL, del);
 		if (token == NULL) {
 			sprintf(wbuf, "%d EBADCMD", PACK_NO);
-		} else if (strcmp(token, "V?") == 0) {
-			send_ack();
-			double d = get_voltage(i2c_addr[0]);
-			sprintf(wbuf, "%d %06.3f", PACK_NO, d);
+		} 
 
+		//VOLTAGE
+		else if (strcmp(token, "V?") == 0) {
+			token = strtok(NULL, del);
+			if (token == NULL) {
+				send_ack();
+				//return all the voltages
+				double d[i2c_count];
+				get_voltage_all(d);
+				sprintf(wbuf, "%d %06.3f", PACK_NO, d[0]);
+				int i;
+				for (i = 1; i < i2c_count ; i++) {
+					sprintf(wbuf + strlen(wbuf)," %06.3f", d[i] );
+				}
+			} else {
+				int cellno = atoi(token);
+				if (cellno > 0 && cellno <= i2c_count ) {
+					send_ack();
+					double d= get_voltage(i2c_addr[cellno - 1]);
+					sprintf(wbuf, "%d %06.3f", PACK_NO, d);
+				} else {
+					sprintf(wbuf, "%d ENOCELL", PACK_NO);
+				}
+			}
+		} else if (strcmp(token, "BYPSON")) {
+			token = strtok(NULL, del);
+			if (token != NULL) {
+				send_ack();
+				int cellno = atoi(token);
+				set_bypass_state(i2c_addr[cellno - 1], 0x1);
+				sprintf(wbuf, "%d SUCCESS", PACK_NO);
+			} else {
+				sprintf(wbuf, "%d EBADARG", PACK_NO);
+			}
+		} else if (strcmp(token, "BYPSOFF")) {
+			token = strtok(NULL, del);
+			if (token != NULL) {
+				int cellno = atoi(token);
+				if (cellno > 0 && cellno <= i2c_count ) {
+					send_ack();
+					set_bypass_state(i2c_addr[cellno - 1], 0x0);
+					sprintf(wbuf, "%d SUCCESS", PACK_NO);
+				} else {
+					sprintf(wbuf, "%d ENOCELL", PACK_NO);
+				}
+			} else {
+				sprintf(wbuf, "%d EBADARG", PACK_NO);
+			}
 		} else {
 			sprintf(wbuf, "%d EBADCMD", PACK_NO);
 		}

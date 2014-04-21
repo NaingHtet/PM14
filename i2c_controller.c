@@ -17,19 +17,12 @@ static const int TEST_BYTES = 2;
 static const char TEST_CMD = 0x17;
 
 static const int TEMP_BYTES = 2;
-static const char TEMP_CMD = 0x17;
+static const char TEMP_CMD = 0x11;
+
+static const char BYPASS_CMD = 0x00;
 
 int i2c_fd;
 pthread_mutex_t lock;
-
-//Open the i2c port
-void open_i2c_port() {
-	i2c_fd = open( I2C_PORTNAME, O_RDWR);
-	if ( i2c_fd < 0 ) {
-		printf("Error Opening i2c port");
-		exit(1);
-	}
-}
 
 void initiate_mutex() {
 	if (pthread_mutex_init(&lock, NULL) != 0)
@@ -38,6 +31,16 @@ void initiate_mutex() {
         exit(1);
     }
 }
+//Open the i2c port
+void open_i2c_port() {
+	i2c_fd = open( I2C_PORTNAME, O_RDWR);
+	if ( i2c_fd < 0 ) {
+		printf("Error Opening i2c port");
+		exit(1);
+	}
+	initiate_mutex();
+}
+
 
 int cur_addr = 0;
 //Set the address of the i2c device we want to communicate
@@ -79,7 +82,10 @@ void read_i2c(char* rd_buf, int no_rd_bytes) {
 				break;
 			} 
 		}
-		if (allzero) fprintf(stderr, "I2C has just read all zero.\n");
+		if (allzero) {
+			fprintf(stderr, "I2C has just read all zero.\n");
+			usleep(1000);
+		}
 	} while (allzero);
 }
 
@@ -150,7 +156,15 @@ double get_temperature(int addr) {
     pthread_mutex_unlock(&lock);
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
+	r_d = (r_d-250)/5;
+
 	return r_d;
+}
+void get_temperature_all(double* r_d) {
+	int i;
+	for ( i = 0 ; i < i2c_count ; i++ ) {
+		r_d[i] = get_temperature(i2c_addr[i]) ;
+	}
 }
 
 void set_bypass_state(int addr, char state) {
@@ -158,7 +172,7 @@ void set_bypass_state(int addr, char state) {
     //LOCKED
 	set_i2c_address(addr);
 	char buf[3];
-	buf[0] = 0x00;
+	buf[0] = BYPASS_CMD;
 	buf[1] = 0x00;
 	buf[2] = state;
 	write_i2c(buf, 3);
