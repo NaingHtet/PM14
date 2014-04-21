@@ -55,12 +55,13 @@ void set_i2c_address(int addr) {
 }
 
 //Write data to i2c device
-void write_i2c(char* buf, int no_wr_bytes) {
+int write_i2c(char* buf, int no_wr_bytes) {
 	int n = write(i2c_fd, buf, no_wr_bytes);
 	if (n < 0) {
 		printf("Error writing = %s\n", strerror(errno));
-		exit(1);
+		return n;
 	}
+	return 1;
 }
 
 //Read data from i2c
@@ -90,18 +91,38 @@ void read_i2c(char* rd_buf, int no_rd_bytes) {
 }
 
 //Write command and read immediately
-void rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
+int rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
 	char wr_buf[1];
 	wr_buf[0] = cmd;
 	//wr_buf[1] = cmd;
+	int n = write_i2c( wr_buf, 1);
+	if (n < 0) {
+		return n;
+	}
 
-	write_i2c( wr_buf, 1);
 	read_i2c(response, no_rd_bytes);
 
 	//TODO(NAING) : remove when AMS firmware bug is gone
 	usleep(100);
 }
 
+int test_all_addresses(int* r_d) {
+    pthread_mutex_lock(&lock);
+    int i;
+    char fail = 0;
+    for (i = 0 ; i < i2c_count ; i++) {
+    	set_i2c_address(i2c_addr[i]);
+		int n = read(i2c_fd, NULL, 0);
+		if ( n < 0 ) {
+			fail = 1;
+			r_d[i] = -1;
+		}
+    }
+    pthread_mutex_unlock(&lock);
+
+    return fail;
+
+}
 
 //Get the voltage from device
 double get_voltage(int addr) {
@@ -110,9 +131,11 @@ double get_voltage(int addr) {
     //LOCKED
 	set_i2c_address(addr);
 	char r_str[VOLTAGE_BYTES];
-	rdwr_i2c(VOLTAGE_CMD, r_str, VOLTAGE_BYTES);
+	int n = rdwr_i2c(VOLTAGE_CMD, r_str, VOLTAGE_BYTES);
 	//UNLOCKED
     pthread_mutex_unlock(&lock);
+
+
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 	r_d = r_d * 6 / 1000;
@@ -124,6 +147,7 @@ double get_voltage(int addr) {
 
 	return r_d;
 }
+
 
 void get_voltage_all(double* r_d) {
 	int i;

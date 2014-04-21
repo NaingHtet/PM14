@@ -8,4 +8,4 @@ pm14:
 clean:
 	rm pm14
 
-.PHONY: all pm14 clean
+.PHONY: all pm14 safety_checker clean

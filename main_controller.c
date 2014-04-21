@@ -78,22 +78,28 @@ void loadConfig() {
 int main() {
 
 	loadConfig();
-	lcdinit(i2c_count);
-	enable_serial_fpga();
-	open_serial_port();
+	// lcdinit(i2c_count);
+	// enable_serial_fpga();
+	// open_serial_port();
 	
 	open_i2c_port();
-	printf("%d, %d", i2c_count, i2c_addr[0]);
+	// printf("%d, %d", i2c_count, i2c_addr[0]);
 	
-	pthread_t safety_thread, serial_thread, display_thread;
-	pthread_create(&safety_thread, NULL, check_safety, NULL);
-	
-
-	pthread_create(&serial_thread, NULL, handle_serial, NULL);
-	pthread_create(&display_thread, NULL, display_LCD, NULL);
-
-	pthread_join(safety_thread, NULL);
-	
+	// pthread_t safety_thread, serial_thread, display_thread;
+	// pthread_create(&safety_thread, NULL, check_safety, NULL);
 	
 
+	// pthread_create(&serial_thread, NULL, handle_serial, NULL);
+	// pthread_create(&display_thread, NULL, display_LCD, NULL);
+
+	// pthread_join(safety_thread, NULL);
+    int r_d[i2c_count];
+    int n = test_all_addresses(r_d);
+    int i;
+    printf("The following addresses are not connected\n");
+    for (i = 0 ; i < i2c_count ; i++) {
+        if (r_d[i] < 0) {
+            printf("%x\n", i2c_addr[i]);
+        }
+    }
 }
