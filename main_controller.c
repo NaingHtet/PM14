@@ -13,6 +13,7 @@
 #include "serial_controller.h"
 #include "safety_checker.h"
 #include "display_controller.h"
+#include "errorhandler.h"
 #include "lib/libconfig.h"
 
 
@@ -78,6 +79,7 @@ void loadConfig() {
 int main() {
 
 	loadConfig();
+    error_handler_init();
 	// lcdinit(i2c_count);
 	// enable_serial_fpga();
 	// open_serial_port();
@@ -85,21 +87,37 @@ int main() {
 	open_i2c_port();
 	// printf("%d, %d", i2c_count, i2c_addr[0]);
 	
-	// pthread_t safety_thread, serial_thread, display_thread;
-	// pthread_create(&safety_thread, NULL, check_safety, NULL);
+	pthread_t safety_thread, serial_thread, display_thread;
+	pthread_create(&safety_thread, NULL, check_safety, NULL);
 	
 
 	// pthread_create(&serial_thread, NULL, handle_serial, NULL);
 	// pthread_create(&display_thread, NULL, display_LCD, NULL);
 
 	// pthread_join(safety_thread, NULL);
-    int r_d[i2c_count];
-    int n = test_all_addresses(r_d);
-    int i;
-    printf("The following addresses are not connected\n");
-    for (i = 0 ; i < i2c_count ; i++) {
-        if (r_d[i] < 0) {
-            printf("%x\n", i2c_addr[i]);
+    while (1) {
+        pthread_mutex_lock(&elock_i2c);
+        while ( !eflag_i2c ) pthread_cond_wait(&econd_i2c, &elock_i2c);
+
+        int n = -1;
+        while (n < 0) {
+            int r_d[i2c_count];
+            n = test_all_addresses(r_d);
+            int i;
+            printf("The following addresses are not connected = %d .\n", n);
+            for (i = 0 ; i < i2c_count ; i++) {
+                if (r_d[i] < 0) {
+                    printf("%x\n", i2c_addr[i]);
+                }
+            }
+            sleep(1);
         }
+
+        eflag_i2c = 0;
+        printf("RECONNECTED!!\n");
+        pthread_cond_broadcast(&econd_i2c);
+
+        pthread_mutex_unlock(&elock_i2c);
+
     }
 }

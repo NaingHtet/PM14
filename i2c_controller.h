@@ -10,7 +10,7 @@ int test_all_addresses(int* r_d);
 
 
 double get_voltage(int addr);
-void get_voltage_all(double* r_d);
+int get_voltage_all(double* r_d);
 
 double get_testcode(int addr);
 double get_temperature(int addr);

@@ -65,13 +65,13 @@ int write_i2c(char* buf, int no_wr_bytes) {
 }
 
 //Read data from i2c
-void read_i2c(char* rd_buf, int no_rd_bytes) {
+int read_i2c(char* rd_buf, int no_rd_bytes) {
 	int allzero = 1;
 	do {
 		int n = read(i2c_fd, rd_buf, no_rd_bytes);
 		if (n < 0) {
 			printf("Error reading = %s\n", strerror( errno));
-			exit(1);
+			return n;
 		}
 
 		//TODO(NAING) : remove when AMS firmware bug is gone
@@ -100,8 +100,10 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
 		return n;
 	}
 
-	read_i2c(response, no_rd_bytes);
-
+	n = read_i2c(response, no_rd_bytes);
+	if (n < 0) {
+		return n;
+	}
 	//TODO(NAING) : remove when AMS firmware bug is gone
 	usleep(100);
 }
@@ -109,15 +111,16 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes) {
 int test_all_addresses(int* r_d) {
     pthread_mutex_lock(&lock);
     int i;
-    char fail = 0;
+    int fail = 0;
     for (i = 0 ; i < i2c_count ; i++) {
     	set_i2c_address(i2c_addr[i]);
 		int n = read(i2c_fd, NULL, 0);
 		if ( n < 0 ) {
-			fail = 1;
+			fail = -1;
 			r_d[i] = -1;
-		}
+		} else r_d[i] = 0;
     }
+    if ( fail == 0 ) printf("Not fail anymore\n"); 
     pthread_mutex_unlock(&lock);
 
     return fail;
@@ -135,6 +138,10 @@ double get_voltage(int addr) {
 	//UNLOCKED
     pthread_mutex_unlock(&lock);
 
+    if ( n < 0) {
+    	esignal_i2c();
+    	return -1.0;
+    }
 
 
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
@@ -149,11 +156,15 @@ double get_voltage(int addr) {
 }
 
 
-void get_voltage_all(double* r_d) {
+int get_voltage_all(double* r_d) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {
 		r_d[i] = get_voltage(i2c_addr[i]) ;
+		if (r_d[i] == -1.0) {
+			return -1;
+		}
 	}
+	return 0;
 }
 
 //Get test code from device
