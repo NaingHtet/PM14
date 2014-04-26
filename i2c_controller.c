@@ -67,6 +67,7 @@ int write_i2c(char* buf, int no_wr_bytes) {
 //Read data from i2c
 int read_i2c(char* rd_buf, int no_rd_bytes) {
 	int allzero = 1;
+	int zerocount = 0;
 	do {
 		int n = read(i2c_fd, rd_buf, no_rd_bytes);
 		if (n < 0) {
@@ -85,7 +86,9 @@ int read_i2c(char* rd_buf, int no_rd_bytes) {
 		}
 		if (allzero) {
 			fprintf(stderr, "I2C has just read all zero.\n");
-			usleep(1000);
+			usleep(++zerocount * 1000);
+		} else {
+			zerocount = 0;
 		}
 	} while (allzero);
 }

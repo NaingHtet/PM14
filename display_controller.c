@@ -60,25 +60,26 @@ void *display_LCD(void *arg) {
 	double nr = ceil((double)(count/3.0));
 	int norounds = (int) nr;
 	while(1) {
-		char wbuf[21];
-		char xbuf[21];
+		// char wbuf[21];
+		// char xbuf[21];
 
-		double d[count];
-		get_voltage_all(d);
+		// double d[count];
+		// int n = get_voltage_all(d);
+		// if (n < 0) break;
+		// double t[count];
+		// get_temperature_all(t);
+		// if (n < 0) break;
 
-		double t[count];
-		get_temperature_all(t);
-
-		int x;
-		for (x = i*3 ; x < i*3+3 && x < count ; x++) {
-			if (x == i*3) {
-				sprintf(wbuf, "V%d:%3.1f", x+1, d[x]);
-				sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
-			} else {
-				sprintf(wbuf + strlen(wbuf), " V%d:%3.1f", x+1, d[x]);
-				sprintf(xbuf + strlen(xbuf), " T%d:%3.0f", x+1, t[x]);
-			}
-		}
+		// int x;
+		// for (x = i*3 ; x < i*3+3 && x < count ; x++) {
+		// 	if (x == i*3) {
+		// 		sprintf(wbuf, "V%d:%3.1f", x+1, d[x]);
+		// 		sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
+		// 	} else {
+		// 		sprintf(wbuf + strlen(wbuf), " V%d:%3.1f", x+1, d[x]);
+		// 		sprintf(xbuf + strlen(xbuf), " T%d:%3.0f", x+1, t[x]);
+		// 	}
+		// }
 
 		command(0x1);
 		lcdwait();
@@ -87,14 +88,14 @@ void *display_LCD(void *arg) {
 		writechars("PACMAN 2014");
 		lcdwait();
 
-		command(SECONDLINE);
-		writechars(wbuf);
-		lcdwait();
+		// command(SECONDLINE);
+		// writechars(wbuf);
+		// lcdwait();
 
-		command(THIRDLINE);
-		writechars(xbuf);
+		// command(THIRDLINE);
+		// writechars(xbuf);
 
-		i = (i + 1)%norounds;
+		// i = (i + 1)%norounds;
 		sleep(2);
 	}
 }

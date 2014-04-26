@@ -13,7 +13,7 @@ void *check_safety(void *arg){
 			double d[i2c_count];
 			int n = get_voltage_all(d);
 			if ( n < 0 ) break;
-			//printf("Voltage received from BMS.\n");
+			// printf("Voltage received from BMS.\n");
 			int i;
 			for ( i = 0; i < i2c_count ; i++) {
 				if ( d[i] > SAFE_V_HIGH || d[i] < SAFE_V_LOW ) {
