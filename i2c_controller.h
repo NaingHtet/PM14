@@ -14,6 +14,6 @@ int get_voltage_all(double* r_d);
 
 double get_testcode(int addr);
 double get_temperature(int addr);
-void get_temperature_all(double* r_d);
+int get_temperature_all(double* r_d);
 
-void set_bypass_state(int addr, char state);
+int set_bypass_state(int addr, char state);

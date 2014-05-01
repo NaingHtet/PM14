@@ -70,6 +70,9 @@ void loadConfig() {
     }
     else fprintf (stderr, "No 'safebounds' in configuration file");
 
+    bound_test = 0;
+    SYSTEM_SAFE = 1;
+
     printf("%f %f %f %f\n" , SAFE_V_HIGH, SAFE_V_LOW, SAFE_T_HIGH, SAFE_T_LOW);
 	PACK_NO = 1;
 
@@ -89,8 +92,6 @@ int main() {
 	
 	pthread_t safety_thread, serial_thread, display_thread;
 	pthread_create(&safety_thread, NULL, check_safety, NULL);
-	
-
 	pthread_create(&serial_thread, NULL, handle_serial, NULL);
 	pthread_create(&display_thread, NULL, display_LCD, NULL);
 
@@ -98,8 +99,8 @@ int main() {
     while (1) {
         pthread_mutex_lock(&elock_main);
         while ( !eflag_main ) pthread_cond_wait(&econd_main, &elock_main);
+        pthread_mutex_unlock(&elock_main);
 
-        pthread_mutex_lock(&elock_i2c);
         int n = -1;
         while (n < 0) {
             int r_d[i2c_count];
@@ -114,12 +115,22 @@ int main() {
             sleep(1);
         }
 
+        pthread_mutex_lock(&elock_i2c);
         eflag_i2c = 0;
-        eflag_main = 0;
-        printf("RECONNECTED!!\n");
-        pthread_cond_broadcast(&econd_i2c);
-
+        pthread_cond_signal(&econd_i2c);
         pthread_mutex_unlock(&elock_i2c);
+
+        pthread_mutex_lock(&elock_main);
+        eflag_main = 0;
         pthread_mutex_unlock(&elock_main);
+
+        printf("RECONNECTED!!\n");
+
+
+    }
+}
+
+void resolve_error_i2c() {
+    if (eflag_i2c) {
     }
 }

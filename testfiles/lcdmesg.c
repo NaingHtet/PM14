@@ -1,18 +1,12 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <math.h>
-#include "display_controller.h"
-#include "i2c_controller.h"
-#include "safety_checker.h"
-#include <stdlib.h>
-
+#include<unistd.h>
+#include<sys/types.h>
+#include<sys/mman.h>
+#include<stdio.h>
+#include<fcntl.h>
+#include<string.h>
+ 
 #define FPGABASE 0x30000000
 #define SYSCON (0x0a /sizeof(unsigned short))
-#define EN_V (0x402 /sizeof(unsigned short))
 #define ODR (0x406 /sizeof(unsigned short))
 #define DDR (0x40A /sizeof(unsigned short))
 #define IDR (0x40E /sizeof(unsigned short))
@@ -29,112 +23,68 @@
 #define SETUP	200
 #define PULSE	400
 #define HOLD	200
-
-#define FIRSTLINE 0x2
-#define SECONDLINE 0xc0
-#define THIRDLINE 0x94
-#define FOURTHLINE 0xd4
-
+ 
 #define COUNTDOWN(x)	asm volatile ( \
   "1:\n"\
   "subs %1, %1, #1;\n"\
   "bne 1b;\n"\
   : "=r" ((x)) : "r" ((x)) \
 );
-volatile unsigned short *syscon, *odr, *ddr, *idr, *en_v;
-
-char error_msg[20];
-double* voltage;
+ 
+volatile unsigned short *syscon, *odr, *ddr, *idr;
+ 
 void command(unsigned int);
 void writechars(unsigned char *);
 unsigned int lcdwait(void);
-
-
-int count;
-pthread_mutex_t dlock;
-
+void lcdinit(void);
  
-void *display_LCD(void *arg) {
-	sleep(2);
-
+/* This program takes lines from stdin and prints them to the
+ * 2 line LCD connected to the TS-8100/TS-8160 LCD header.  e.g
+ *
+ *    echo "hello world" | lcdmesg
+ * 
+ * It may need to be tweaked for different size displays
+ */
+ 
+int main(int argc, char **argv) {
 	int i = 0;
-	double nr = ceil((double)(count/3.0));
-	int norounds = (int) nr;
-	while(1) {
-		command(0x1);
-		lcdwait();
-
-		char wbuf[21];
-		char xbuf[21];
-
-		double d[count];
-		int n = get_voltage_all(d);
-		// if (n < 0) break;
-		// double t[count];
-		// get_temperature_all(t);
-		// if (n < 0) break;
-		if ( n < 0 ) {
-			command(SECONDLINE);
-			writechars("E03:NO AMS");
-			lcdwait();
-		} else {			
-			int x;
-			for (x = i*3 ; x < i*3+3 && x < count ; x++) {
-				if (x == i*3) {
-					sprintf(wbuf, "V%d:%3.1f", x+1, d[x]);
-					// sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
-				} else {
-					sprintf(wbuf + strlen(wbuf), " V%d:%3.1f", x+1, d[x]);
-					// sprintf(xbuf + strlen(xbuf), " T%d:%3.0f", x+1, t[x]);
-				}
-			}
-			command(SECONDLINE);
-			writechars(wbuf);
-			lcdwait();
-
-			// command(THIRDLINE);
-			// writechars(xbuf);
-			lcdwait();
-		}
-
-
-		command(FIRSTLINE);
-		writechars("PACMAN 2014");
-		lcdwait();
-
-		if (!SYSTEM_SAFE) {
-			command(FOURTHLINE);
-			writechars("SYSTEM NOT SAFE");
-		}
-
-		// i = (i + 1)%norounds;
-		sleep(2);
+ 
+	lcdinit();
+	if (argc == 2) {
+		writechars(argv[1]);
 	}
+	if (argc > 2) {
+		writechars(argv[1]);
+		lcdwait();
+		command(0xa8); // set DDRAM addr to second row
+		writechars(argv[2]);
+	}
+	if (argc >= 2) return 0;
+ 
+	while(!feof(stdin)) {
+		unsigned char buf[512];
+ 
+		lcdwait();
+		if (i) {
+			// XXX: this seek addr may be different for different
+			// LCD sizes!  -JO
+			command(0xa8); // set DDRAM addr to second row
+		} else {
+			command(0x2); // return home
+		}
+		i = i ^ 0x1;
+		if (fgets(buf, sizeof(buf), stdin) != NULL) {
+			unsigned int len;
+			buf[0x27] = 0;
+			len = strlen(buf);
+			if (buf[len - 1] == '\n') buf[len - 1] = 0;
+			writechars(buf);
+		}
+	}
+	return 0;
 }
-
-void set_error_msg(char* msg) {
-    pthread_mutex_lock(&dlock);
-    //LOCKED
-	strcpy(error_msg, msg);
-    pthread_mutex_unlock(&dlock);
-    //UNLOCKED
-}
-
-void initiate_dmutex() {
-	if (pthread_mutex_init(&dlock, NULL) != 0)
-    {
-        printf("\n mutex init failed\n");
-        exit(1);
-    }
-}
-//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-//BELOW IS THE CODE FROM TS8160-4200 WIKI
-//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-void lcdinit(int i2c_count) {
-	count = i2c_count;
-	initiate_dmutex();
-
+ 
+void lcdinit(void) {
 	int fd = open("/dev/mem", O_RDWR|O_SYNC);
  
 	syscon = (unsigned short *)mmap(0, getpagesize(), 
@@ -144,7 +94,6 @@ void lcdinit(int i2c_count) {
 	odr = &syscon[ODR];
 	ddr = &syscon[DDR];
 	idr = &syscon[IDR];
-	en_v = &syscon[EN_V];
 	syscon = &syscon[SYSCON];
  
 	*syscon = *syscon | 0x1000;
@@ -153,8 +102,7 @@ void lcdinit(int i2c_count) {
 	*ddr = *ddr | LCD_WR | LCD_RS | LCD_EN; // control lines to outputs
 	*odr &= ~(LCD_EN | LCD_RS);
 	*odr |= LCD_WR;
- 	*en_v |= 0x1000;
-
+ 
 	usleep(15000);
 	command(0x38); // two rows, 5x7, 8 bit
 	usleep(4100);
@@ -281,4 +229,3 @@ void writechars(unsigned char *dat) {
 		COUNTDOWN(i);
 	} while(*dat);
 }
-
