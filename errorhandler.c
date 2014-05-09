@@ -1,4 +1,5 @@
 #include "errorhandler.h"
+#include <stdio.h>
 void error_handler_init() {
 	pthread_mutex_init(&elock_main, NULL);
 	pthread_cond_init(&econd_main, NULL);
@@ -12,6 +13,7 @@ void error_handler_init() {
 void esignal_main() {
 	pthread_mutex_lock(&elock_main);
 	eflag_main= 1;
+	printf("signalled!\n");
 	pthread_cond_signal(&econd_main);
 	pthread_mutex_unlock(&elock_main);
 }

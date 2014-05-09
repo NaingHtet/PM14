@@ -5,35 +5,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-volatile uint16_t *muxbus = 0;
+#define DIO_WATCHDOG 0x0008
+#define DIO_SAFETY 0x0004
+#define DIO_CHARGERELAY 0x0001
 
-void mpoke16(uint16_t addr, uint16_t value)
-{
-	if(muxbus == 0) {
-		int mem = open("/dev/mem", O_RDWR|O_SYNC);
-		muxbus = mmap(0,
-			getpagesize(),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED,
-			mem,
-			0x30000000);
-	}
- 
-	muxbus[(addr + 0x400)/2] = value;
-}
-uint16_t mpeek16(uint16_t addr) 
-{
-	uint16_t value;
- 
-	if(muxbus == 0) {
-		int mem = open("/dev/mem", O_RDWR|O_SYNC);
-		muxbus = mmap(0,
-			getpagesize(),
-			PROT_READ|PROT_WRITE,
-			MAP_SHARED,
-			mem,
-			0x30000000);
-	}
- 
-	return muxbus[(addr + 0x400)/2];
-}
+void initiate_dio_mutex();
+void mpoke16(uint16_t addr, uint16_t value);
+uint16_t mpeek16(uint16_t addr);
+uint16_t peek16(uint16_t addr);
+void poke16(uint16_t addr, uint16_t value);

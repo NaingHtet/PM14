@@ -13,7 +13,6 @@
 #include "serial_controller.h"
 #include "i2c_controller.h"
 #include "safety_checker.h"
-#include "dio.h"
 
 int serial_fd;
 
@@ -22,35 +21,24 @@ int test_mode = 0;
 
 //Allows the fpga to control RDWR over RS485 port. This needs to be done to read write to serial port.
 void enable_serial_fpga() {
-	//Enable DIO direction
-	// uint16_t value = mpeek16(0x8);
-	// mpoke16(0x0008, value | 0x0020);
-	// usleep(100);
-
-	int mem = open("/dev/mem", O_RDWR|O_SYNC);
-	uint16_t* fpga = mmap(0,
-							getpagesize(),
-							PROT_READ|PROT_WRITE,
-							MAP_SHARED,
-							mem,
-							0x30000000);
-
-	uint16_t addr = 0x000a;
-	uint16_t lvalue = 0x0756;
-	fpga[addr/2] = lvalue;
-	close(fpga);
+	initiate_dio_mutex();
+	//enable dio direction
+	mpeekpoke16(0x0008, 0x0020, 1);
 }
 
 void set_serial_diowrite() {
 	// uint16_t value = mpeek16(0x4);
 	// mpoke16(0x4, value | 0x0020);
 	// while ( mpeek16(0x4) & 0x0020 != 0x20){};
+
+	mpeekpoke16(0x0004, 0x0020, 1);
 }
 
 void set_serial_dioread() {
 	// uint16_t value = mpeek16(0x4);
 	// mpoke16(0x4, value & 0xFFDF);
 	// while ( mpeek16(0x4) & 0x0020 != 0x00){};
+	mpeekpoke16(0x0004, 0x0020, 0);
 }
 
 //Open the serial port
@@ -142,7 +130,7 @@ void *handle_serial(void *arg) {
 				int cellno = atoi(token);
 				if (cellno > 0 && cellno <= i2c_count ) {
 					// send_ack();
-					double d= get_voltage(i2c_addr[cellno - 1]);
+					double d= get_voltage(cellno - 1);
 					sprintf(wbuf, "%d %06.3f", PACK_NO, d);
 				} else {
 					sprintf(wbuf, "%d ENOCELL", PACK_NO);

@@ -11,3 +11,4 @@ char eflag_i2c;
 
 void ewait_i2c();
 void esignal_i2c();
+void esignal_main();

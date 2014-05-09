@@ -67,35 +67,49 @@ void *display_LCD(void *arg) {
 		char wbuf[21];
 		char xbuf[21];
 
-		double d[count];
-		int n = get_voltage_all(d);
+		// double d[count];
+		// int n = get_voltage_all(d);
 		// if (n < 0) break;
 		// double t[count];
 		// get_temperature_all(t);
 		// if (n < 0) break;
+
+
+		double cur_I;
+		double cur_V;
+		int n = get_current(&cur_I);
+
+		command(0x1);
+		lcdwait();
+
+
+		if ( n >= 0) {
+			n = get_overall_voltage(&cur_V);
+		}
 		if ( n < 0 ) {
-			command(SECONDLINE);
+			command(THIRDLINE);
 			writechars("E03:NO AMS");
 			lcdwait();
 		} else {			
-			int x;
-			for (x = i*3 ; x < i*3+3 && x < count ; x++) {
-				if (x == i*3) {
-					sprintf(wbuf, "V%d:%3.1f", x+1, d[x]);
+			sprintf(wbuf, "C:%3.2f   V:%3.2f", cur_I, cur_V);
 					// sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
-				} else {
-					sprintf(wbuf + strlen(wbuf), " V%d:%3.1f", x+1, d[x]);
-					// sprintf(xbuf + strlen(xbuf), " T%d:%3.0f", x+1, t[x]);
-				}
-			}
-			command(SECONDLINE);
+			command(THIRDLINE);
 			writechars(wbuf);
 			lcdwait();
 
 			// command(THIRDLINE);
 			// writechars(xbuf);
-			lcdwait();
+			// lcdwait();
 		}
+
+		sprintf(xbuf, "SOC:%d   ", disp_SOC);
+		if (charging_state) 
+			sprintf(xbuf+ strlen(xbuf),"CHARGING");
+		else sprintf(xbuf+ strlen(xbuf),"DISCHARGING");
+
+		command(SECONDLINE);
+		writechars(xbuf);
+		lcdwait();
 
 
 		command(FIRSTLINE);
