@@ -76,12 +76,7 @@ int main() {
 		i = (i++)%20;
 
 		printf("%f %f %.6f %.6f %d\n", real_SOC, ccount, alpha_gain, alpha_bias, charging_state);
-
-
 	}
-
-
-
 }
 
 /**

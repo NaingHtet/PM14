@@ -1,10 +1,9 @@
 #include "i2c_controller.h"
 #include "safety_checker.h"
-#include "errorhandler.h"
+#include "error_handler.h"
 #include "dio.h"
 #include <sys/time.h>
 #include <string.h>
-#include <stdio.h>
 
 
 double alpha_gain;
@@ -26,6 +25,7 @@ int detect_charger();
 char status_messages[10][1000];
 int status_count;
 
+FILE* monitor;
 
 void set_state_of_charge(double SOC, double gain, double bias, double learning_rate_) {
 	disp_SOC = (int)SOC;
@@ -54,12 +54,12 @@ void add_message(char* msg) {
 }
 
 void print_all_messages() {
-	printf("\nStatus Messages\n______________________________\n");
+	fprintf(monitor,"\nStatus Messages\n______________________________\n");
 	int i;
 
-	printf(status_messages[(status_count+9)%10 ]);
+	fprintf(monitor,status_messages[(status_count+9)%10 ]);
 	for ( i = (status_count+8)%10 ; i != (status_count+9)%10; i= (i+9)%10) {
-		printf(status_messages[i]);
+		fprintf(monitor,status_messages[i]);
 	}
 }
 
@@ -104,12 +104,8 @@ void *check_safety(void *arg){
 	mpeekpoke16(0x0008, DIO_CHARGERELAY, 1);
 	mpeekpoke16(0x0004, DIO_SAFETY, 0);
 
-	FILE * fp;
-	if (LOG_FILE) { 
-		fp = fopen("out.dat", "a");
-		fprintf(fp, "Starting Program\n");
-		fprintf(fp, "Curtime Charging Plugged Ccount realsoc dispsoc current packV packT Bypass_of_all_cells Voltage_of_all_cells Temperature_of_all_cells\n");
-	}
+
+	monitor = fopen("monitor.txt", "w+");
 
 	while(*PROGRAM_RUNNING) {
 		int bypass_rank = 0;
@@ -175,9 +171,10 @@ void *check_safety(void *arg){
 
 			fprintf(stderr, "\033[2J");
 
-			printf("Charging state:%d    Plugged:%d    Cur_time:%7.2f \n", charging_state, charger_plugged, cur_time );
-			printf("Coloumb count:%6.2f  real SOC:%6.2f   disp SOC:%d \n", ccount, real_SOC, disp_SOC );
-			printf("Current:%6.2f   Pack Voltage:%7.3f Fuse Temp:%7.3f \n", cur_I, cur_V, fuse_T );
+			rewind(monitor);
+			fprintf(monitor,"Charging state:%d    Plugged:%d    Cur_time:%7.2f \n", charging_state, charger_plugged, cur_time );
+			fprintf(monitor,"Coloumb count:%6.2f  real SOC:%6.2f   disp SOC:%d \n", ccount, real_SOC, disp_SOC );
+			fprintf(monitor,"Current:%6.2f   Pack Voltage:%7.3f Fuse Temp:%7.3f \n", cur_I, cur_V, fuse_T );
 
 			sprintf(wbuf, "%3.2f ",  d_v[0]);
 			sprintf(xbuf, "%3.1f ",d_t[0]);
@@ -189,27 +186,26 @@ void *check_safety(void *arg){
 				sprintf(ybuf+ strlen(ybuf), "%d ",  d_b[j]);
 			}
 
-			printf("Bypass = ");
-			printf(ybuf);
-			printf("\n");
+			fprintf(monitor,"Bypass = ");
+			fprintf(monitor,ybuf);
+			fprintf(monitor,"\n");
 
-			printf("Voltage = ");
-			printf(wbuf);
-			printf("\n");
+			fprintf(monitor,"Voltage = ");
+			fprintf(monitor,wbuf);
+			fprintf(monitor,"\n");
 
-			printf("Temperature = ");
-			printf(xbuf);
-			printf("\n");
-			fflush(stdout);
+			fprintf(monitor,"Temperature = ");
+			fprintf(monitor,xbuf);
+			fprintf(monitor,"\n");
 
 			print_all_messages();
 
 			fflush(stdout);
 
 			if (LOG_FILE) {
-			fprintf(fp, "%.2f %d %d %.2f %.2f %d %6.2f %6.2f %6.2f %s %s %s\n",
-				cur_time, charging_state, charger_plugged,
-				ccount, real_SOC, disp_SOC, cur_I, cur_V, fuse_T, ybuf ,wbuf, xbuf);
+				fprintf(log_fp, "%.2f %d %d %.2f %.2f %d %6.2f %6.2f %6.2f %s %s %s\n",
+					cur_time, charging_state, charger_plugged,
+					ccount, real_SOC, disp_SOC, cur_I, cur_V, fuse_T, ybuf ,wbuf, xbuf);
 			}
 
 			if (!charging_state) {
@@ -351,7 +347,7 @@ void *check_safety(void *arg){
 			ewait_i2c();
 		}
 	}
-	if (LOG_FILE)fclose(fp);
+	if (LOG_FILE)fclose(log_fp);
 }
 
 

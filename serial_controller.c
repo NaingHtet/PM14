@@ -91,6 +91,7 @@ void *handle_serial(void *arg) {
 		char wbuf[100];
 		printf("waiting for command \n");
 
+
 		int n = read_serial(buffer, sizeof(buffer));
 		buffer[n] = '\0';
 

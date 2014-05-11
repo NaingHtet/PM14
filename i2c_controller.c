@@ -9,7 +9,7 @@
 #include <pthread.h>
 
 #include "i2c_controller.h"
-#include "errorhandler.h"
+#include "error_handler.h"
 
 static const int VOLTAGE_BYTES = 2;
 static const char VOLTAGE_CMD = 0x10;

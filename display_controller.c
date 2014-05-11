@@ -56,13 +56,11 @@ pthread_mutex_t dlock;
  
 void *display_LCD(void *arg) {
 	sleep(2);
-
+	int* PROGRAM_RUNNING= arg;
 	int i = 0;
 	double nr = ceil((double)(count/3.0));
 	int norounds = (int) nr;
-	while(1) {
-		command(0x1);
-		lcdwait();
+	while(*PROGRAM_RUNNING) {
 
 		char wbuf[21];
 		char xbuf[21];
@@ -79,33 +77,35 @@ void *display_LCD(void *arg) {
 		double cur_V;
 		int n = get_current(&cur_I);
 
-		command(0x1);
-		lcdwait();
-
 
 		if ( n >= 0) {
 			n = get_overall_voltage(&cur_V);
 		}
 		if ( n < 0 ) {
-			command(THIRDLINE);
-			writechars("E03:NO AMS");
-			lcdwait();
+			sprintf(wbuf, "E03:NO AMS");
 		} else {			
 			sprintf(wbuf, "C:%3.2f   V:%3.2f", cur_I, cur_V);
 					// sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
-			command(THIRDLINE);
-			writechars(wbuf);
-			lcdwait();
-
 			// command(THIRDLINE);
 			// writechars(xbuf);
 			// lcdwait();
 		}
 
-		sprintf(xbuf, "SOC:%d   ", disp_SOC);
+
+
+		sprintf(xbuf, "SOC:%d  ", disp_SOC);
 		if (charging_state) 
 			sprintf(xbuf+ strlen(xbuf),"CHARGING");
 		else sprintf(xbuf+ strlen(xbuf),"DISCHARGING");
+
+
+		command(0x1);
+		lcdwait();
+
+
+		command(THIRDLINE);
+		writechars(wbuf);
+		lcdwait();
 
 		command(SECONDLINE);
 		writechars(xbuf);
@@ -124,6 +124,12 @@ void *display_LCD(void *arg) {
 		// i = (i + 1)%norounds;
 		sleep(2);
 	}
+
+	command(0x1);
+	lcdwait();
+	command(FIRSTLINE);
+	writechars("PROGRAM STOPPED!");
+	lcdwait();
 }
 
 void set_error_msg(char* msg) {
