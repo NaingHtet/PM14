@@ -22,7 +22,7 @@
 
 #include "i2c_controller.h"
 #include "serial_controller.h"
-#include "safety_checker.h"
+#include "pack_controller.h"
 #include "display_controller.h"
 #include "error_handler.h"
 #include "lib/libconfig.h"
@@ -55,13 +55,25 @@ void log_handler(int signum){
 
 void main_initialize() {
 
-    LOG_FILE = 0;
-    PROGRAM_RUNNING = 1;
 
     syslog(LOG_INFO, "Loading configuration file");
     load_config();
     syslog(LOG_INFO, "Successfully loaded configuration file");
 
+    PROGRAM_RUNNING = 1;
+    struct sigaction SA1, SA2;
+    SA1.sa_handler = quit_handler;
+    if ( sigaction(SIGQUIT, &SA1, NULL) == -1) {
+        printf("sigaction_failed");
+        exit(1);
+    }
+
+    LOG_FILE = 0;
+    SA2.sa_handler = log_handler;
+    if ( sigaction(SIGUSR1, &SA2, NULL) == -1) {
+        //printf("sigaction_failed");
+        exit(1);
+    }
 
 }
 
@@ -122,58 +134,37 @@ int main() {
      * Making program daemon process. END
      */
 
+    main_initialize();
+
+    dio_initialize();
+
+    error_handler_initialize();
+
+    display_controller_initialize();
+
+    serial_controller_initialize();
+
+    i2c_controller_initialize();
+
+    watchdog_feeder_initialize();
 
 
-    error_handler_init();
-    //enable safety loop
-    mpeekpoke16(0x0008, DIO_SAFETY, 1);
+    pthread_t watchdog_thread, pack_thread, serial_thread, display_thread;
 
-    lcdinit(i2c_count);
-    enable_serial_fpga();
-    open_serial_port();
-    
-    printf("Opened Serial\n");
-
-    open_i2c_port();
-    printf("Opened I2C\n");
-
-    // printf("%d, %d", i2c_count, i2c_addr[0]);
-    pthread_t watchdog_thread;
-    pthread_create(&watchdog_thread, NULL, feed_watchdog, NULL);
-
-    pthread_t safety_thread, serial_thread, display_thread;
-    pthread_create(&safety_thread, NULL, check_safety, &PROGRAM_RUNNING);
+    pthread_create(&watchdog_thread, NULL, feed_watchdog, &PROGRAM_RUNNING);
+    pthread_create(&pack_thread, NULL, control_pack, &PROGRAM_RUNNING);
     pthread_create(&serial_thread, NULL, handle_serial, NULL);
     pthread_create(&display_thread, NULL, display_LCD, &PROGRAM_RUNNING);
 
-
-    struct sigaction SA1, SA2;
-    SA1.sa_handler = quit_handler;
-    if ( sigaction(SIGQUIT, &SA1, NULL) == -1) {
-        printf("sigaction_failed");
-        exit(1);
-    }
-
-    SA2.sa_handler = log_handler;
-    if ( sigaction(SIGUSR1, &SA2, NULL) == -1) {
-        //printf("sigaction_failed");
-        exit(1);
-    }
-
-
-        // pthread_join(safety_thread, NULL);
-
-    while (1) {
+    while (PROGRAM_RUNNING) {
         pthread_mutex_lock(&elock_main);
         while ( !eflag_main ) pthread_cond_wait(&econd_main, &elock_main);
         pthread_mutex_unlock(&elock_main);
 
-        if (!PROGRAM_RUNNING) break;
-
-        mpeekpoke16(0x0004, DIO_SAFETY, 1);
+        mpeekpoke16(DIO_OUTPUT, DIO_SAFETY, DIO_ON);
 
         int n = -1;
-        while (n < 0) {
+        while (PROGRAM_RUNNING && (n < 0)) {
             int r_d[i2c_count];
             n = test_all_addresses(r_d);
             int i;
@@ -184,10 +175,11 @@ int main() {
                     printf("%x\n", i2c_addr[i]);
                 }
             }
+            
             sleep(1);
         }
 
-        mpeekpoke16(0x0004, DIO_SAFETY, 0);
+        mpeekpoke16(DIO_OUTPUT, DIO_SAFETY, DIO_OFF);
 
         pthread_mutex_lock(&elock_i2c);
         eflag_i2c = 0;
@@ -200,16 +192,23 @@ int main() {
 
         printf("RECONNECTED!!\n");
 
-
     }
-    pthread_join(safety_thread,NULL);
+    mpeekpoke16(DIO_OUTPUT, DIO_SAFETY, DIO_ON);
+    //Program ending!
+
+    pthread_cancel(serial_thread);
+    close_serial();
+
+    pthread_join(pack_thread,NULL);
     pthread_join(display_thread,NULL);
+    pthread_join(watchdog_thread,NULL);
+
     save_config();
-    free(i2c_addr);
-    free(v_calib_a);
-    free(v_calib_b);
-    free(t_calib_a);
-    free(t_calib_b);
+    error_handler_destroy();
+    dio_destroy();
+    i2c_controller_destroy();
+
+    closelog();
     printf("Quit successfully\n");
 }
 
@@ -223,7 +222,7 @@ void load_config() {
 
     /* Read the file. If there is an error, report it and exit. */
     if(! config_read_file(&cfg, "pm14.cfg")) {
-        syslog(LOG_ERR, "%s:%d - %s\n", config_error_file(&cfg),
+        syslog(LOG_ERR, "%s:%d - %s", config_error_file(&cfg),
                 config_error_line(&cfg), config_error_text(&cfg));
         config_destroy(&cfg);
         exit(1);
@@ -250,28 +249,28 @@ void load_config() {
     		i2c_param = config_setting_get_elem(setting, i);
             if (i2c_param != NULL) {
                 if (config_setting_lookup_int(i2c_param, "address", &i2c_addr[i]) == CONFIG_FALSE) {
-                    syslog(LOG_ERR, "Cannot lookup address\n");
+                    syslog(LOG_ERR, "Cannot lookup address");
                     exit(1);
                 }
                 calib_param = config_setting_get_member(i2c_param, "voltage_calib");
                 if (calib_param != NULL) {
                     if (config_setting_lookup_float(calib_param, "a", &v_calib_a[i]) == CONFIG_FALSE) {
-                        syslog(LOG_ERR, "Cannot lookup voltage_calib.a\n");
+                        syslog(LOG_ERR, "Cannot lookup voltage_calib.a");
                         exit(1);
                     }
                     if (config_setting_lookup_float(calib_param, "b", &v_calib_b[i]) == CONFIG_FALSE) {
-                        syslog(LOG_ERR, "Cannot lookup voltage_calib.b\n");
+                        syslog(LOG_ERR, "Cannot lookup voltage_calib.b");
                         exit(1);
                     }
                 }
                 calib_param = config_setting_get_member(i2c_param, "temperature_calib");
                 if (calib_param != NULL) {
                     if (config_setting_lookup_float(calib_param, "a", &t_calib_a[i]) == CONFIG_FALSE) {
-                        syslog(LOG_ERR, "Cannot lookup temperature_calib.a\n");
+                        syslog(LOG_ERR, "Cannot lookup temperature_calib.a");
                         exit(1);
                     }
                     if (config_setting_lookup_float(calib_param, "b", &t_calib_b[i]) == CONFIG_FALSE) {
-                        syslog(LOG_ERR, "Cannot lookup temperature_calib.b\n");
+                        syslog(LOG_ERR, "Cannot lookup temperature_calib.b");
                         exit(1);
                     }
                 }
@@ -295,7 +294,7 @@ void load_config() {
                 exit(1);
             }
     		if (config_setting_lookup_float(bounds, "low", &SAFE_V_LOW) == CONFIG_FALSE) {
-    			syslog(LOG_ERR, "Cannot lookup voltage.low\n");
+    			syslog(LOG_ERR, "Cannot lookup voltage.low");
                 exit(1);
             }
     	}
@@ -307,11 +306,11 @@ void load_config() {
     	bounds = config_setting_get_member(setting, "temperature");
     	if (bounds != NULL) {
     		if (config_setting_lookup_float(bounds, "normal_high", &SAFE_T_NORMAL) == CONFIG_FALSE) {
-    			syslog(LOG_ERR, "Cannot lookup temperature.normal_high\n");
+    			syslog(LOG_ERR, "Cannot lookup temperature.normal_high");
                 exit(1);
             }
     		if (config_setting_lookup_float(bounds, "charging_high", &SAFE_T_CHARGING) == CONFIG_FALSE) {
-    			syslog(LOG_ERR, "Cannot lookup temperature.charging_high\n");
+    			syslog(LOG_ERR, "Cannot lookup temperature.charging_high");
                 exit(1);
             }
     	}
@@ -331,21 +330,21 @@ void load_config() {
         double SOC, gain, bias, learning_rate;
 
         if (config_setting_lookup_float(setting, "SOC", &SOC) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup SOC\n");
+            syslog(LOG_ERR, "Cannot lookup SOC");
             exit(1);
         }
         if (config_setting_lookup_float(setting, "gain", &gain) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup gain\n");
+            syslog(LOG_ERR, "Cannot lookup gain");
             exit(1);
         }
 
         if (config_setting_lookup_float(setting, "bias", &bias) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup bias\n");
+            syslog(LOG_ERR, "Cannot lookup bias");
             exit(1);
         }
 
         if (config_setting_lookup_float(setting, "learning_rate", &learning_rate) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup learning_rate\n");
+            syslog(LOG_ERR, "Cannot lookup learning_rate");
             exit(1);
         }
 
@@ -360,7 +359,7 @@ void load_config() {
     if (setting != NULL) {
         
         if (config_setting_lookup_int(setting, "address", &charging_current_addr) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup charging_current_addr\n");
+            syslog(LOG_ERR, "Cannot lookup charging_current_addr");
             exit(1);
         }
 
@@ -368,16 +367,16 @@ void load_config() {
         params = config_setting_get_member(setting, "current_calib");
         if (params != NULL) {
             if (config_setting_lookup_float(params, "a", &cc_calib_a) == CONFIG_FALSE) {
-                syslog(LOG_ERR, "Cannot lookup cc_calib_a\n");
+                syslog(LOG_ERR, "Cannot lookup cc_calib_a");
                 exit(1);
             }
             if (config_setting_lookup_float(params, "b", &cc_calib_b) == CONFIG_FALSE) {
-                syslog(LOG_ERR, "Cannot lookup cc_calib_b\n");
+                syslog(LOG_ERR, "Cannot lookup cc_calib_b");
                 exit(1);
             }
 
         } else {
-            syslog(LOG_ERR, "No calibration for current\n");
+            syslog(LOG_ERR, "No calibration for current");
             exit(1);
         }
     }
@@ -390,7 +389,7 @@ void load_config() {
     if (setting != NULL) {
         
         if (config_setting_lookup_int(setting, "address", &discharging_current_addr) == CONFIG_FALSE) {
-            syslog(LOG_ERR, "Cannot lookup discharging_current_addr\n");
+            syslog(LOG_ERR, "Cannot lookup discharging_current_addr");
             exit(1);
         }
 
@@ -398,16 +397,16 @@ void load_config() {
         params = config_setting_get_member(setting, "current_calib");
         if (params != NULL) {
             if (config_setting_lookup_float(params, "a", &dc_calib_a) == CONFIG_FALSE) {
-                syslog(LOG_ERR, "Cannot lookup dc_calib_a\n");
+                syslog(LOG_ERR, "Cannot lookup dc_calib_a");
                 exit(1);
             }
             if (config_setting_lookup_float(params, "b", &dc_calib_b) == CONFIG_FALSE) {
-                syslog(LOG_ERR, "Cannot lookup dc_calib_b\n");
+                syslog(LOG_ERR, "Cannot lookup dc_calib_b");
                 exit(1);
             }
 
         } else {
-            syslog(LOG_ERR, "No calibration for discharging current\n");
+            syslog(LOG_ERR, "No calibration for discharging current");
             exit(1);
         }
     }
@@ -416,6 +415,9 @@ void load_config() {
         exit(1);
     }
 
+    if (config_lookup_int(&cfg, "pack_no", &PACK_NO) == CONFIG_FALSE) {
+        syslog(LOG_ERR, "Cannot lookup pack_no");
+    }
 
     bound_test = 0;
     SYSTEM_SAFE = 1;
@@ -435,7 +437,7 @@ void save_config() {
 
     /* Read the file. If there is an error, report it and exit. */
     if(! config_read_file(&cfg, "pm14.cfg")) {
-        syslog(LOG_ERR, "%s:%d - %s\n", config_error_file(&cfg),
+        syslog(LOG_ERR, "%s:%d - %s", config_error_file(&cfg),
                 config_error_line(&cfg), config_error_text(&cfg));
         config_destroy(&cfg);
         exit(1);
@@ -449,17 +451,24 @@ void save_config() {
 
         config_setting_t *params;
         params = config_setting_get_member(setting, "SOC");
-        if (params == NULL) printf("no SOC\n");
+        if (params == NULL) {
+            syslog(LOG_ERR, "Cannot lookup SOC");
+            exit(1);
+        }
         config_setting_set_float(params, SOC);
 
         params = config_setting_get_member(setting, "gain");
-        if (params == NULL) printf("no gain\n");
-
+        if (params == NULL) {
+            syslog(LOG_ERR, "Cannot lookup gain");
+            exit(1);
+        }
         config_setting_set_float(params, gain);
 
         params = config_setting_get_member(setting, "bias");
-        if (params == NULL) printf("no bias\n");
-
+        if (params == NULL) {
+            syslog(LOG_ERR, "Cannot lookup bias");
+            exit(1);
+        }
         config_setting_set_float(params, bias);
 
     }
@@ -470,7 +479,7 @@ void save_config() {
     
     if(! config_write_file(&cfg, "pm14.cfg"))
     {
-        syslog(LOG_ERR, "Error while writing file.\n");
+        syslog(LOG_ERR, "Error while writing file.");
         config_destroy(&cfg);
     }
 

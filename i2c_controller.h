@@ -2,7 +2,6 @@ static const char I2C_PORTNAME[] = "/dev/i2c-0";
 
 int i2c_count;
 
-
 int *i2c_addr; //address array
 double *v_calib_a;
 double *v_calib_b;
@@ -19,8 +18,7 @@ double dc_calib_a, dc_calib_b;
 
 
 
-
-void open_i2c_port();
+void i2c_controller_initialize();
 
 
 int test_all_addresses(int* r_d);

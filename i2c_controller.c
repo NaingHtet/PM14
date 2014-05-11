@@ -30,6 +30,7 @@ static const char OVERALL_VOLTAGE_REG = 0x04;
 
 int i2c_fd;
 pthread_mutex_t lock;
+int cur_addr;
 
 void initiate_mutex() {
 	if (pthread_mutex_init(&lock, NULL) != 0)
@@ -48,6 +49,22 @@ void open_i2c_port() {
 	initiate_mutex();
 }
 
+void i2c_controller_initialize() {
+	open_i2c_port();
+	initiate_mutex();
+	cur_addr = -1;
+}
+
+void i2c_controller_destroy() {
+	close(i2c_fd);
+	pthread_mutex_destroy(&lock);
+
+    free(i2c_addr);
+    free(v_calib_a);
+    free(v_calib_b);
+    free(t_calib_a);
+    free(t_calib_b);
+}
 
 int cur_addr = 0;
 //Set the address of the i2c device we want to communicate

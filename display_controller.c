@@ -7,7 +7,7 @@
 #include <math.h>
 #include "display_controller.h"
 #include "i2c_controller.h"
-#include "safety_checker.h"
+#include "pack_controller.h"
 #include <stdlib.h>
 
 #define FPGABASE 0x30000000
@@ -43,34 +43,21 @@
 );
 volatile unsigned short *syscon, *odr, *ddr, *idr, *en_v;
 
-char error_msg[20];
-double* voltage;
 void command(unsigned int);
 void writechars(unsigned char *);
 unsigned int lcdwait(void);
 
-
-int count;
-pthread_mutex_t dlock;
-
  
 void *display_LCD(void *arg) {
 	sleep(2);
+
 	int* PROGRAM_RUNNING= arg;
-	int i = 0;
-	double nr = ceil((double)(count/3.0));
-	int norounds = (int) nr;
+
+
 	while(*PROGRAM_RUNNING) {
 
 		char wbuf[21];
 		char xbuf[21];
-
-		// double d[count];
-		// int n = get_voltage_all(d);
-		// if (n < 0) break;
-		// double t[count];
-		// get_temperature_all(t);
-		// if (n < 0) break;
 
 
 		double cur_I;
@@ -132,28 +119,13 @@ void *display_LCD(void *arg) {
 	lcdwait();
 }
 
-void set_error_msg(char* msg) {
-    pthread_mutex_lock(&dlock);
-    //LOCKED
-	strcpy(error_msg, msg);
-    pthread_mutex_unlock(&dlock);
-    //UNLOCKED
-}
 
-void initiate_dmutex() {
-	if (pthread_mutex_init(&dlock, NULL) != 0)
-    {
-        printf("\n mutex init failed\n");
-        exit(1);
-    }
-}
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 //BELOW IS THE CODE FROM TS8160-4200 WIKI
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-void lcdinit(int i2c_count) {
-	count = i2c_count;
-	initiate_dmutex();
+void display_controller_initialize() {
+
 
 	int fd = open("/dev/mem", O_RDWR|O_SYNC);
  

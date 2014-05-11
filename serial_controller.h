@@ -1,6 +1,8 @@
 int PACK_NO;
 static const char SERIAL_PORTNAME[] = "/dev/ttyS3";
 
-void enable_serial_fpga();
-void open_serial_port();
+
+void serial_controller_initialize();
+
 void *handle_serial(void *arg);
+void close_serial();

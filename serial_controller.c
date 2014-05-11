@@ -10,38 +10,16 @@
 #include <string.h>
 #include <termios.h>
 
+#include "dio.h"
 #include "serial_controller.h"
 #include "i2c_controller.h"
-#include "safety_checker.h"
+#include "pack_controller.h"
 
 int serial_fd;
 
 // TestMode params
-int test_mode = 0;
+int test_mode;
 
-//Allows the fpga to control RDWR over RS485 port. This needs to be done to read write to serial port.
-void enable_serial_fpga() {
-	initiate_dio_mutex();
-	//enable dio direction
-	mpeekpoke16(0x0008, 0x0020, 1);
-}
-
-void set_serial_diowrite() {
-	// uint16_t value = mpeek16(0x4);
-	// mpoke16(0x4, value | 0x0020);
-	// while ( mpeek16(0x4) & 0x0020 != 0x20){};
-
-	mpeekpoke16(0x0004, 0x0020, 1);
-}
-
-void set_serial_dioread() {
-	// uint16_t value = mpeek16(0x4);
-	// mpoke16(0x4, value & 0xFFDF);
-	// while ( mpeek16(0x4) & 0x0020 != 0x00){};
-	mpeekpoke16(0x0004, 0x0020, 0);
-}
-
-//Open the serial port
 void open_serial_port() {
 	serial_fd = open( SERIAL_PORTNAME, O_RDWR | O_NOCTTY );
 	if ( serial_fd < 0 ) {
@@ -49,6 +27,25 @@ void open_serial_port() {
 		exit(1);
 	}
 }
+
+void serial_controller_initialize() {
+	//enable dio direction
+	mpeekpoke16(DIO_DIRECTION, DIO_SERIAL, DIO_ON);
+	open_serial_port();
+	test_mode = 0;
+	bound_test = 0;
+}
+
+void set_serial_diowrite() {
+	mpeekpoke16(DIO_OUTPUT, DIO_SERIAL, DIO_ON);
+}
+
+void set_serial_dioread() {
+	mpeekpoke16(DIO_OUTPUT, DIO_SERIAL, DIO_OFF);
+}
+
+//Open the serial port
+
 
 //Write data to serial port
 void write_serial(char* buf, int no_wr_bytes) {
@@ -85,10 +82,14 @@ void send_ack() {
 	write_serial(wbuf, 4);
 }
 
+void close_serial() {
+	close(serial_fd);
+}
+
 void *handle_serial(void *arg) {
 	while(1) {
 		char buffer[1000];
-		char wbuf[100];
+		char wbuf[200];
 		printf("waiting for command \n");
 
 
