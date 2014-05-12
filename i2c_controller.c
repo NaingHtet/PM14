@@ -7,9 +7,12 @@
 #include <errno.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <syslog.h>
 
 #include "i2c_controller.h"
 #include "error_handler.h"
+#include "display_controller.h"
+#include "dio.h"
 
 static const int VOLTAGE_BYTES = 2;
 static const char VOLTAGE_CMD = 0x10;
@@ -35,7 +38,8 @@ int cur_addr;
 void initiate_mutex() {
 	if (pthread_mutex_init(&lock, NULL) != 0)
     {
-        printf("\n mutex init failed\n");
+        syslog(LOG_ERR, "i2c mutex init failed\n");
+        display_error_msg("E07-UNEXPECTED");
         exit(1);
     }
 }
@@ -43,7 +47,8 @@ void initiate_mutex() {
 void open_i2c_port() {
 	i2c_fd = open( I2C_PORTNAME, O_RDWR);
 	if ( i2c_fd < 0 ) {
-		printf("Error Opening i2c port");
+		syslog(LOG_ERR, "Error Opening i2c port");
+        display_error_msg("E07-UNEXPECTED");
 		exit(1);
 	}
 	initiate_mutex();
@@ -52,6 +57,8 @@ void open_i2c_port() {
 void i2c_controller_initialize() {
 	open_i2c_port();
 	initiate_mutex();
+	mpeekpoke16(DIO_DIRECTION, DIO_AMSRESET, DIO_ON);
+	mpeekpoke16(DIO_OUTPUT, DIO_AMSRESET, DIO_ON);
 	cur_addr = -1;
 }
 
@@ -73,7 +80,8 @@ void set_i2c_address(int addr) {
 	else cur_addr = addr;
 	int io = ioctl(i2c_fd, I2C_SLAVE, addr);
 	if (io < 0) {
-		printf("Error setting i2c address");
+        syslog(LOG_ERR, "Error setting i2c address");
+        display_error_msg("E07-UNEXPECTED");
 		exit(1);
 	}
 }
@@ -82,7 +90,7 @@ void set_i2c_address(int addr) {
 int write_i2c(char* buf, int no_wr_bytes) {
 	int n = write(i2c_fd, buf, no_wr_bytes);
 	if (n < 0) {
-		fprintf(stderr,"Error writing = %s\n", strerror(errno));
+		syslog(LOG_ERR,"Error writing = %s\n", strerror(errno));
 		return n;
 	}
 	return 1;
@@ -93,7 +101,7 @@ int read_i2c(char* rd_buf, int no_rd_bytes) {
 
 	int n = read(i2c_fd, rd_buf, no_rd_bytes);
 	if (n < 0) {
-		fprintf(stderr, "Error reading = %s\n", strerror( errno));
+		syslog(LOG_ERR, "Error reading = %s\n", strerror( errno));
 		return n;
 	}
 
@@ -112,13 +120,11 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes, int zerocheck) {
 	do {
 		int n = write_i2c( wr_buf, 1);
 		if (n < 0) {
-			fprintf(stderr, "error in writing\n");
 			return n;
 		}
 
 		n = read_i2c(response, no_rd_bytes);
 		if (n < 0) {
-			fprintf(stderr, "error in reading\n");
 			return n;
 		}
 
@@ -133,8 +139,21 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes, int zerocheck) {
 		if (!zerocheck) allzero = 0;
 
 		if (allzero) {
-			fprintf(stderr, "I2C has just read all zero.\n");
+			syslog(LOG_ERR,"I2C has just read all zero.");
 			usleep(++zerocount * 1000);
+			if ( zerocount > 20 ) {
+				syslog(LOG_ERR, "Resetting i2c");
+				mpeekpoke16(DIO_OUTPUT, DIO_AMSRESET, DIO_OFF);
+				usleep(100);
+				mpeekpoke16(DIO_OUTPUT, DIO_AMSRESET, DIO_ON);
+
+			} else if ( zerocount > 25 ){
+				syslog(LOG_ERR, "Cannot read correct value from I2C");
+				display_error_msg("E04:AMS ERROR");
+				exit(1);
+			}
+
+
 		} else {
 			zerocount = 0;
 		}
@@ -147,7 +166,7 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes, int zerocheck) {
 	return 1;
 }
 
-int test_all_addresses(int* r_d) {
+int test_all_addresses() {
     pthread_mutex_lock(&lock);
     int i;
     int fail = 0;
@@ -156,23 +175,25 @@ int test_all_addresses(int* r_d) {
 		int n = read(i2c_fd, NULL, 0);
 		if ( n < 0 ) {
 			fail = -1;
-			r_d[i] = -1;
-		} else r_d[i] = 0;
+			syslog(LOG_ERR, "Cannot connect to i2c address 0x%x", i2c_addr[i]);
+		}
     }
 
     set_i2c_address(charging_current_addr);
 	int n = read(i2c_fd, NULL, 0);
 	if ( n < 0 ){
-		printf("no c current sensor\n");
+		syslog(LOG_ERR, "Cannot connect to i2c address 0x%x", charging_current_addr);
 		fail = -1;
 	} 
 
     set_i2c_address(discharging_current_addr);
 	n = read(i2c_fd, NULL, 0);
 	if ( n < 0 ){
-		printf("no d current sensor\n");
+		syslog(LOG_ERR, "Cannot connect to i2c address 0x%x", discharging_current_addr);
 		fail = -1;
 	} 
+
+
     pthread_mutex_unlock(&lock);
 
     return fail;
@@ -242,7 +263,6 @@ int get_current(double* r_d) {
 	double current1 = ((uint16_t)r_str[0] << 4) + ((uint16_t)r_str[1] >> 4);
 	current1 = current1 / 6.0;
 	current1 = (current1 * cc_calib_a) + cc_calib_b;
-	printf("charging current = %f\n", current1);
 
     pthread_mutex_lock(&lock);
     //LOCKED
@@ -259,8 +279,6 @@ int get_current(double* r_d) {
 	double current2 = ((uint16_t)r_str[0] << 4) + ((uint16_t)r_str[1] >> 4);
 	current2 = current2 / 6.0;
 	current2 = (current2 * dc_calib_a) + dc_calib_b;
-
-	printf("discharging current = %f\n", current2);
 
 	*r_d = current1 - current2;
     pthread_mutex_unlock(&lock);
@@ -285,7 +303,6 @@ int get_overall_voltage(double* r_d) {
     pthread_mutex_unlock(&lock);
 
     if ( n < 0) {
-    	fprintf(stderr, "Error in voltage i2c\n");
     	esignal_i2c();
     	return -1;
     }

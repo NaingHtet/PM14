@@ -17,6 +17,7 @@
 #define DIO_CHARGERELAY 0x0001
 #define DIO_SERIAL 0x0020
 #define DIO_CHARGERPLUG 0x0040
+#define DIO_AMSRESET 0x0002
 
 void mpoke16(uint16_t addr, uint16_t value);
 uint16_t mpeek16(uint16_t addr);

@@ -9,11 +9,13 @@
 #include <errno.h>
 #include <string.h>
 #include <termios.h>
+#include <syslog.h>
 
 #include "dio.h"
 #include "serial_controller.h"
 #include "i2c_controller.h"
 #include "pack_controller.h"
+#include "display_controller.h"
 
 int serial_fd;
 
@@ -23,7 +25,8 @@ int test_mode;
 void open_serial_port() {
 	serial_fd = open( SERIAL_PORTNAME, O_RDWR | O_NOCTTY );
 	if ( serial_fd < 0 ) {
-		printf("Error Opening serial port");
+		syslog(LOG_ERR, "Error Opening serial port");
+		display_error_msg("E07:UNEXPECTED");
 		exit(1);
 	}
 }
@@ -53,7 +56,8 @@ void write_serial(char* buf, int no_wr_bytes) {
 	set_serial_diowrite();
 	int n = write(serial_fd, buf, no_wr_bytes);
 	if (n < 0) {
-		printf("Error writing = %s\n", strerror( errno));
+		syslog(LOG_ERR, "Error writing for serial");
+		display_error_msg("E07:UNEXPECTED");
 		exit(1);
 	}
 
@@ -69,7 +73,8 @@ int read_serial(char* rd_buf, int no_rd_bytes) {
 
 	int n = read(serial_fd, rd_buf, no_rd_bytes);
 	if (n < 0) {
-		printf("Error reading = %s\n", strerror( errno));
+		syslog(LOG_ERR, "Error reading for serial");
+		display_error_msg("E07:UNEXPECTED");
 		exit(1);
 	}
 	return n;
@@ -90,17 +95,13 @@ void *handle_serial(void *arg) {
 	while(1) {
 		char buffer[1000];
 		char wbuf[200];
-		printf("waiting for command \n");
-
 
 		int n = read_serial(buffer, sizeof(buffer));
 		buffer[n] = '\0';
 
-		fprintf(stderr,"Command from serial : %s\n", buffer);
 
 		//The message doesn't concern this pack
 		if (buffer[0] - '0' != PACK_NO) {
-			fprintf(stderr, "buf = %d, pack = %d \n", buffer[0] - '0', PACK_NO);
 			continue;
 		} 
 

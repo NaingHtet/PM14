@@ -47,6 +47,16 @@ void command(unsigned int);
 void writechars(unsigned char *);
 unsigned int lcdwait(void);
 
+void display_error_msg(char* msg) {
+	command(0x1);
+	lcdwait();
+	command(FIRSTLINE);
+	writechars("PROGRAM FAILED!");
+	lcdwait();
+	command(SECONDLINE);
+	writechars(msg);
+	lcdwait();
+}
  
 void *display_LCD(void *arg) {
 	sleep(2);
@@ -72,13 +82,7 @@ void *display_LCD(void *arg) {
 			sprintf(wbuf, "E03:NO AMS");
 		} else {			
 			sprintf(wbuf, "C:%3.2f   V:%3.2f", cur_I, cur_V);
-					// sprintf(xbuf, "T%d:%3.0f", x+1, t[x]);
-			// command(THIRDLINE);
-			// writechars(xbuf);
-			// lcdwait();
 		}
-
-
 
 		sprintf(xbuf, "SOC:%d  ", disp_SOC);
 		if (charging_state) 
@@ -89,7 +93,6 @@ void *display_LCD(void *arg) {
 		command(0x1);
 		lcdwait();
 
-
 		command(THIRDLINE);
 		writechars(wbuf);
 		lcdwait();
@@ -98,14 +101,16 @@ void *display_LCD(void *arg) {
 		writechars(xbuf);
 		lcdwait();
 
-
 		command(FIRSTLINE);
-		writechars("PACMAN 2014");
+		writechars("PACMAN 2014 - NMH");
 		lcdwait();
 
 		if (!SYSTEM_SAFE) {
 			command(FOURTHLINE);
-			writechars("SYSTEM NOT SAFE");
+			writechars("E05:SYSTEM UNSAFE");
+		} else if ( BATTERY_LOW ) {
+			command(FOURTHLINE);
+			writechars("E06:BATTERY LOW");
 		}
 
 		// i = (i + 1)%norounds;
@@ -125,13 +130,11 @@ void *display_LCD(void *arg) {
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 void display_controller_initialize() {
-
-
 	int fd = open("/dev/mem", O_RDWR|O_SYNC);
  
 	syscon = (unsigned short *)mmap(0, getpagesize(), 
 	  PROT_READ|PROT_WRITE, MAP_SHARED, fd, FPGABASE);
- 
+
  
 	odr = &syscon[ODR];
 	ddr = &syscon[DDR];

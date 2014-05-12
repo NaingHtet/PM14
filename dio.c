@@ -1,5 +1,7 @@
 #include "dio.h"
+#include "display_controller.h"
 #include <stdlib.h>
+#include <syslog.h>
 
 volatile uint16_t *muxbus = 0;
 
@@ -8,7 +10,8 @@ pthread_mutex_t dio_lock;
 void initiate_dio_mutex() {
 	if (pthread_mutex_init(&dio_lock, NULL) != 0)
     {
-        printf("\n mutex init failed\n");
+        syslog(LOG_ERR, "Failed to initiate dio mutex");
+        display_error_msg("E07:UNEXPECTED");
         exit(1);
     }
 }
@@ -50,18 +53,30 @@ uint16_t mpeek16(uint16_t addr)
 	return muxbus[(addr + 0x400)/2];
 }
 
-
 void mpeekpoke16(uint16_t addr, uint16_t bitposition, int onoff) {
 	pthread_mutex_lock(&dio_lock);
+	int tries = 0;
 
 	uint16_t value = mpeek16(addr);
 	if (onoff) {
 		while ( (mpeek16(addr) & bitposition) != bitposition){
+			if (tries++ > 20) {
+				syslog(LOG_ERR, "Cannot write to dio addr= 0x%x", addr);
+				display_error_msg("E07:UNEXPECTED - DIO");
+				exit(1);
+			}
+
 			mpoke16(addr, value | bitposition);
 			usleep(100);
 		};
 	} else {
 		while ( (mpeek16(addr) & bitposition) != 0x0){
+			if (tries++ > 20) {
+				syslog(LOG_ERR, "Cannot write to dio addr= 0x%x", addr);
+				display_error_msg("E07:UNEXPECTED - DIO");
+				exit(1);
+			}
+
 			mpoke16(addr, value & ~bitposition);
 			usleep(100);
 		};

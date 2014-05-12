@@ -21,7 +21,7 @@ double dc_calib_a, dc_calib_b;
 void i2c_controller_initialize();
 
 
-int test_all_addresses(int* r_d);
+int test_all_addresses();
 
 
 double get_voltage(int addr);
