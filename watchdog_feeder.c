@@ -1,3 +1,10 @@
+/** @file watchdog_feeder.c
+ *  @brief Feeds the watchdog
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
+
 #include "watchdog_feeder.h"
 #include "dio.h"
 
@@ -7,6 +14,7 @@ void watchdog_feeder_initialize() {
 	mpeekpoke16(DIO_DIRECTION, DIO_WATCHDOG, DIO_ON);
 }
 
+//basically feeds the watchdog at every interval.
 void *feed_watchdog(void *arg){
 	int* PROGRAM_RUNNING= arg;
 

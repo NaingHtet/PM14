@@ -1,0 +1,21 @@
+Charging state:0    Plugged:0    Cur_time:979438226.81 
+Coloumb count:211474.15  real SOC: 98.84   disp SOC:99 
+Current: -0.88   Pack Voltage: 23.592 Fuse Temp: 22.809 Shunt Temp: 27.179
+Charging current:-0.5412   Discharging current:0.3347
+Bypass = 0 0 0 0 0 0 0 
+Voltage = 3.35 3.36 3.36 3.37 3.37 3.37 3.36 
+Temperature = 25.60 28.20 27.80 25.60 24.60 24.20 23.60 
+
+Status Messages
+______________________________
+Charging Complete or encountered error
+New bypass for 6 is 3.596000
+New bypass for 5 is 3.593000
+New bypass for 4 is 3.594000
+New bypass for 3 is 3.595000
+New bypass for 2 is 3.597000
+New bypass for 1 is 3.592000
+New bypass for 0 is 3.599000
+Charging complete
+Adjusted SOC
+

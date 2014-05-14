@@ -28,18 +28,20 @@
 #include "lib/libconfig.h"
 #include "watchdog_feeder.h"
 #include "dio.h"
+#include "httpserver.h"
 
 int PROGRAM_RUNNING;
 
 int load_config();
 void save_config();
 
-
+//The program is quiting. Abandon ship!
 void quit_handler(int signum){
     PROGRAM_RUNNING = 0;
     esignal_main();
 }
 
+//This will log/unlog the data.
 void log_handler(int signum){
     if (!LOG_FILE) {
         log_fp =  fopen("out.dat", "a");
@@ -53,8 +55,10 @@ void log_handler(int signum){
     }
 }
 
+//Initialize for main controller
 void main_initialize() {
 
+    //Load config file
     syslog(LOG_INFO, "Loading configuration file");
     if ( load_config() < 0) {
         display_error_msg("E02:BAD CONFIG");
@@ -62,6 +66,8 @@ void main_initialize() {
     }
     syslog(LOG_INFO, "Successfully loaded configuration file");
 
+
+    //Handle QUIT signal
     PROGRAM_RUNNING = 1;
     struct sigaction SA1, SA2;
     SA1.sa_handler = quit_handler;
@@ -71,6 +77,7 @@ void main_initialize() {
         exit(1);
     }
 
+    //Handle SIGUSR1 (LOGGING) signal
     LOG_FILE = 0;
     SA2.sa_handler = log_handler;
     if ( sigaction(SIGUSR1, &SA2, NULL) == -1) {
@@ -136,6 +143,9 @@ int main() {
     /**
      * Making program daemon process. END
      */
+
+
+     //initialize everything!
     display_controller_initialize();
 
     main_initialize();
@@ -152,13 +162,18 @@ int main() {
 
     pack_controller_initialize();
 
-    pthread_t watchdog_thread, pack_thread, serial_thread, display_thread;
+
+    //CREATE ALL THE THREADS!
+    pthread_t watchdog_thread, pack_thread, serial_thread, display_thread, server_thread;
 
     pthread_create(&watchdog_thread, NULL, feed_watchdog, &PROGRAM_RUNNING);
     pthread_create(&pack_thread, NULL, control_pack, &PROGRAM_RUNNING);
     pthread_create(&serial_thread, NULL, handle_serial, NULL);
     pthread_create(&display_thread, NULL, display_LCD, &PROGRAM_RUNNING);
+    // pthread_create(&server_thread, NULL, handle_server, NULL);
 
+
+    //WAIT AND SOLVE i2c problem. 
     while (PROGRAM_RUNNING) {
         pthread_mutex_lock(&elock_main);
         while ( !eflag_main ) pthread_cond_wait(&econd_main, &elock_main);
@@ -187,15 +202,16 @@ int main() {
 
     }
     mpeekpoke16(DIO_OUTPUT, DIO_SAFETY, DIO_ON);
-    //Program ending!
+    //Program ending!!
 
+    //Cancel or wait for all the threads
     pthread_cancel(serial_thread);
-    close_serial();
-
     pthread_join(pack_thread,NULL);
     pthread_join(display_thread,NULL);
     pthread_join(watchdog_thread,NULL);
 
+    //Save the config and destroy things that need to be
+    close_serial();
     save_config();
     error_handler_destroy();
     dio_destroy();
@@ -206,7 +222,7 @@ int main() {
     closelog();
 }
 
-
+// Load the configuration file
 int load_config() {
     config_t cfg;
     config_setting_t *setting;
@@ -311,6 +327,15 @@ int load_config() {
     	}
     	else {
             syslog(LOG_ERR, "No temperature bounds in configuration file");
+            return -1;
+        }
+
+        if (config_setting_lookup_float(setting, "charging_coulomb_limit", &CHARGING_COULOMB_LIMIT) == CONFIG_FALSE) {
+            syslog(LOG_ERR, "Cannot lookup voltage.high");
+            return -1;
+        }
+        if (config_setting_lookup_float(setting, "charging_time_limit", &CHARGING_TIME_LIMIT) == CONFIG_FALSE) {
+            syslog(LOG_ERR, "Cannot lookup voltage.low");
             return -1;
         }
     }
@@ -419,7 +444,7 @@ int load_config() {
     return 0;
 }
 
-
+//Save the new SOC parameters to the file
 void save_config() {
     config_t cfg;
     config_setting_t *setting;

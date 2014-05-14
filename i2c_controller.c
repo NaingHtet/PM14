@@ -1,3 +1,12 @@
+/** @file i2c_controller.c
+ *  @brief The controller for i2c.
+ *
+ *	Functions to communicate with AMS and current and pack sensors through i2c
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
+
 #include <stdio.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
@@ -13,6 +22,9 @@
 #include "error_handler.h"
 #include "display_controller.h"
 #include "dio.h"
+
+static const char I2C_PORTNAME[] = "/dev/i2c-0";
+
 
 static const int VOLTAGE_BYTES = 2;
 static const char VOLTAGE_CMD = 0x10;
@@ -31,10 +43,12 @@ static const char BYPASS_CMD = 0x00;
 static const char OVERALL_CURRENT_REG = 0x00;
 static const char OVERALL_VOLTAGE_REG = 0x04;
 
-int i2c_fd;
-pthread_mutex_t lock;
-int cur_addr;
+int i2c_fd; //file descriptor for i2c
+pthread_mutex_t lock; // mutex lock for i2c so that threads don't try to send i2c commands at the same time
+int cur_addr; //The current address i2c is set to
 
+
+//Initiate the mutex
 void initiate_mutex() {
 	if (pthread_mutex_init(&lock, NULL) != 0)
     {
@@ -54,14 +68,18 @@ void open_i2c_port() {
 	initiate_mutex();
 }
 
+//Initiate i2c controller functions
 void i2c_controller_initialize() {
 	open_i2c_port();
 	initiate_mutex();
+
+	//Enable AMSReset
 	mpeekpoke16(DIO_DIRECTION, DIO_AMSRESET, DIO_ON);
 	mpeekpoke16(DIO_OUTPUT, DIO_AMSRESET, DIO_ON);
 	cur_addr = -1;
 }
 
+//Free memory and destroy mutex
 void i2c_controller_destroy() {
 	close(i2c_fd);
 	pthread_mutex_destroy(&lock);
@@ -73,7 +91,6 @@ void i2c_controller_destroy() {
     free(t_calib_b);
 }
 
-int cur_addr = 0;
 //Set the address of the i2c device we want to communicate
 void set_i2c_address(int addr) {
 	if ( cur_addr == addr) return;
@@ -138,6 +155,12 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes, int zerocheck) {
 
 		if (!zerocheck) allzero = 0;
 
+		//So AMS firmware for 2013 has an error. Sometimes it reads all zero. Sometimes it reads some random numbers
+		//So as any good programmer would do, I bashed how terrible the firmware was and thought I could do better.
+		//You will probably do the same to me. Such is Karma.
+
+		//Anyway, ahem. to patch the reading all zero problem, the program will send command and read again for 20 times.
+		//After that, it will reset the board before it tries to read again. If this still goes on for 25 time, raise error.
 		if (allzero) {
 			syslog(LOG_ERR,"I2C has just read all zero.");
 			usleep(++zerocount * 1000);
@@ -166,6 +189,8 @@ int rdwr_i2c(char cmd, char* response, int no_rd_bytes, int zerocheck) {
 	return 1;
 }
 
+
+//Check if all the addresses are connected.
 int test_all_addresses() {
     pthread_mutex_lock(&lock);
     int i;
@@ -199,7 +224,6 @@ int test_all_addresses() {
     return fail;
 
 }
-
 
 
 //Get the voltage from device
@@ -237,6 +261,8 @@ double get_voltage(int cellno) {
 	return r_d;
 }
 
+//Get charging current and discharging current from device
+//current1 is charging and current2 is discharging
 int get_current(double* r_d) {
 	//check flag
     pthread_mutex_lock(&elock_i2c);
@@ -280,11 +306,13 @@ int get_current(double* r_d) {
 	current2 = current2 / 6.0;
 	current2 = (current2 * dc_calib_a) + dc_calib_b;
 
-	*r_d = current1 - current2;
+	r_d[0] = current1;
+	r_d[1] = current2;
     pthread_mutex_unlock(&lock);
 
 }
 
+//Get the pack voltage
 int get_overall_voltage(double* r_d) {
 	//check flag
     pthread_mutex_lock(&elock_i2c);
@@ -309,11 +337,14 @@ int get_overall_voltage(double* r_d) {
 
     double voltage = ((uint16_t)r_str[4] << 4) + ((uint16_t)r_str[5] >> 4);
     voltage = voltage * 0.0005 * 16.0;
+
+    //Pack voltage is not calibrated because 1) we don't need to 2)senioritis
     *r_d = voltage;
     pthread_mutex_unlock(&lock);
 
 }
 
+//Get all the voltage from all cells
 int get_voltage_all(double* r_d) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {
@@ -340,8 +371,8 @@ int get_voltage_all(double* r_d) {
 // 	return r_d;
 // }
 
-double get_temperature(int addr) {
-
+//Get the temperature
+double get_temperature(int cellno) {
 	//check flag
     pthread_mutex_lock(&elock_i2c);
     if (eflag_i2c) {
@@ -352,7 +383,7 @@ double get_temperature(int addr) {
 
 
     pthread_mutex_lock(&lock);
-  	set_i2c_address(addr);
+  	set_i2c_address(i2c_addr[cellno]);
 	char r_str[TEMP_BYTES];
 	int n = rdwr_i2c(TEMP_CMD, r_str, TEMP_BYTES, 1);
     pthread_mutex_unlock(&lock);
@@ -365,10 +396,12 @@ double get_temperature(int addr) {
 	double r_d = ((uint16_t)r_str[0] << 8) + r_str[1];
 	r_d = (r_d-250)/5;
 
+	//calibration
+	r_d = (r_d * t_calib_a[cellno]) + t_calib_b[cellno];
 	return r_d;
 }
 
-
+//Check the state of the bypass for the cell
 int get_bypass_state(int addr) {
 
 	//check flag
@@ -396,6 +429,7 @@ int get_bypass_state(int addr) {
 	return r_d;
 }
 
+//Get bypass states of all the cells
 int get_bypass_state_all(int* r_d) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {
@@ -407,16 +441,18 @@ int get_bypass_state_all(int* r_d) {
 
 }
 
+//Get temperatures of all cells
 int get_temperature_all(double* r_d) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {
-		r_d[i] = get_temperature(i2c_addr[i]) ;
+		r_d[i] = get_temperature(i) ;
 		if (r_d[i] == -1.0) {
 			return -1;
 		}
 	}
 }
 
+//Set the bypass state of the cell
 int set_bypass_state(int addr, char state) {
 	//check flag
     pthread_mutex_lock(&elock_i2c);
@@ -444,6 +480,7 @@ int set_bypass_state(int addr, char state) {
     return n;
 }
 
+//Set all cells to a bypass state
 int set_bypass_state_all(char state) {
 	int i;
 	for ( i = 0 ; i < i2c_count ; i++ ) {

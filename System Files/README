@@ -1,0 +1,9 @@
+pm14 is the daemon script for the program.
+Put it in /etc/init.d/
+
+Do not forget to enable it for startup process.
+
+
+rsyslog.conf is the configuration file for syslog.
+It was edited to create new log files for pm14.
+Overwrite it or edit it in /etc/rsyslog.conf

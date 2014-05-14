@@ -1,3 +1,9 @@
+/** @file dio.h
+ *  @brief The header for dio.c
+ *  
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -5,13 +11,16 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+//DIO addresses
 #define DIO_DIRECTION 0x0008
 #define DIO_OUTPUT 0x0004
 #define DIO_INPUT 0x000c
 
+//DIO values
 #define DIO_ON 1
 #define DIO_OFF 0
 
+//DIO channel bit positions
 #define DIO_WATCHDOG 0x0008
 #define DIO_SAFETY 0x0004
 #define DIO_CHARGERELAY 0x0001

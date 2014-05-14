@@ -1,3 +1,10 @@
+/** @file i2c_controller.h
+ *  @brief The header file for serial_controller
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
+
 int PACK_NO;
 static const char SERIAL_PORTNAME[] = "/dev/ttyS3";
 

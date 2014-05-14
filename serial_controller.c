@@ -1,3 +1,13 @@
+/** @file serial_controller.c
+ *  @brief The serial for Pack Manager 14
+ *  
+ *  This is the serial controller for Pack Manager 14.
+ *  This uses RS232 port to communicate to central SCADA. We are using an isolator chip to convert RS232 to RS485.
+ *  Due to this, we need to set the DIO to indicate whether we are sending or receiving.  
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>
@@ -22,6 +32,7 @@ int serial_fd;
 // TestMode params
 int test_mode;
 
+//Open the Serial port
 void open_serial_port() {
 	serial_fd = open( SERIAL_PORTNAME, O_RDWR | O_NOCTTY );
 	if ( serial_fd < 0 ) {
@@ -31,6 +42,7 @@ void open_serial_port() {
 	}
 }
 
+//Initialize. Open the port and enable dio for serial.
 void serial_controller_initialize() {
 	//enable dio direction
 	mpeekpoke16(DIO_DIRECTION, DIO_SERIAL, DIO_ON);
@@ -39,15 +51,15 @@ void serial_controller_initialize() {
 	bound_test = 0;
 }
 
+//Set the dio to write mode
 void set_serial_diowrite() {
 	mpeekpoke16(DIO_OUTPUT, DIO_SERIAL, DIO_ON);
 }
 
+//Set the dio to read mode
 void set_serial_dioread() {
 	mpeekpoke16(DIO_OUTPUT, DIO_SERIAL, DIO_OFF);
 }
-
-//Open the serial port
 
 
 //Write data to serial port
@@ -81,16 +93,19 @@ int read_serial(char* rd_buf, int no_rd_bytes) {
 }
 
 //Remove all the send_ack later, they can be annoying and not necessary
-void send_ack() {
-	char wbuf[5];
-	sprintf(wbuf , "%d OK", PACK_NO);
-	write_serial(wbuf, 4);
-}
+// void send_ack() {
+// 	char wbuf[5];
+// 	sprintf(wbuf , "%d OK", PACK_NO);
+// 	write_serial(wbuf, 4);
+// }
 
+//Close the serial port
 void close_serial() {
 	close(serial_fd);
 }
 
+
+//Thread function for serial_controller.
 void *handle_serial(void *arg) {
 	while(1) {
 		char buffer[1000];

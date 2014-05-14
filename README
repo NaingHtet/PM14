@@ -1,0 +1,23 @@
+To start the program,
+service pm14 start
+
+To stop the program,
+service pm14 stop
+
+Other Useful Commands
+./monitorscript.sh - monitors the system
+make - This will make the pm14 program. Use it in DEV machine. Compiling in pacman is not recommended.
+./copy.sh - Use it in DEV machine to copy the new pm14 program into the pacman.
+./toggle_log - enable logging into out.dat. Call it again to disable.
+tail /var/log/pm14.err - to check the latest entries in the log
+tsctl bus peek16 0x404 - to check the value at the address 0x404 , Refer to ts8160-4200 for more info
+tsctl bus poke16 0x404 0xC003 - turn on the charger relay. Change 0xC003 to 0xC002 to turn it off.
+
+It might be useful for you to familiarize yourself with tsctl.
+First type,
+> tsctl
+This will take you into tsctl. They type
+> mode hex
+This will display values in hex. Type
+> bus peek16 0x404
+to check out the current output values of DIO.

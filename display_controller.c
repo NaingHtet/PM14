@@ -1,3 +1,11 @@
+/** @file display_controller.c
+ *  @brief The controller for LCD display
+ *  
+ *	The controller for LCD display. Most of the functions are adapted from TS8160-4200 wiki page example.
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -47,6 +55,8 @@ void command(unsigned int);
 void writechars(unsigned char *);
 unsigned int lcdwait(void);
 
+
+//Clears the screen and display msg for the program failure
 void display_error_msg(char* msg) {
 	command(0x1);
 	lcdwait();
@@ -57,60 +67,65 @@ void display_error_msg(char* msg) {
 	writechars(msg);
 	lcdwait();
 }
- 
+
+
+//Thread function fo display_controller
 void *display_LCD(void *arg) {
 	sleep(2);
 
 	int* PROGRAM_RUNNING= arg;
-
 
 	while(*PROGRAM_RUNNING) {
 
 		char wbuf[21];
 		char xbuf[21];
 
-
-		double cur_I;
+		//Prepare display current and voltage or if AMS cannot be reached
+		double cur_I[2];
 		double cur_V;
-		int n = get_current(&cur_I);
-
-
+		int n = get_current(cur_I);
 		if ( n >= 0) {
 			n = get_overall_voltage(&cur_V);
 		}
 		if ( n < 0 ) {
 			sprintf(wbuf, "E03:NO AMS");
 		} else {			
-			sprintf(wbuf, "C:%3.2f   V:%3.2f", cur_I, cur_V);
+			sprintf(wbuf, "C:%3.2fA  V:%3.2fV", cur_I[0] - cur_I[1], cur_V);
 		}
 
-		sprintf(xbuf, "SOC:%d  ", disp_SOC);
+		//Prepare display SOC and charging state
+		sprintf(xbuf, "SOC:%d%% ", disp_SOC);
 		if (charging_state) 
-			sprintf(xbuf+ strlen(xbuf),"CHARGING");
-		else sprintf(xbuf+ strlen(xbuf),"DISCHARGING");
+			sprintf(xbuf+ strlen(xbuf),"CHARGE");
+		else sprintf(xbuf+ strlen(xbuf),"DISCHARGE");
+
 
 
 		command(0x1);
 		lcdwait();
 
-		command(THIRDLINE);
-		writechars(wbuf);
+		command(FIRSTLINE);
+		writechars("PACMAN14 -NAING,DREW");
 		lcdwait();
 
 		command(SECONDLINE);
 		writechars(xbuf);
 		lcdwait();
 
-		command(FIRSTLINE);
-		writechars("PACMAN 2014 - NMH");
+		command(THIRDLINE);
+		writechars(wbuf);
 		lcdwait();
 
+		//For the fourth line, display system state
 		if (!SYSTEM_SAFE) {
 			command(FOURTHLINE);
 			writechars("E05:SYSTEM UNSAFE");
 		} else if ( BATTERY_LOW ) {
 			command(FOURTHLINE);
 			writechars("E06:BATTERY LOW");
+		} else if ( CHARGING_FINISHED ) {
+			command(FOURTHLINE);
+			writechars("CHARGING COMPLETE");
 		}
 
 		// i = (i + 1)%norounds;

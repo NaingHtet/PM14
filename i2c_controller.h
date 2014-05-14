@@ -1,4 +1,9 @@
-static const char I2C_PORTNAME[] = "/dev/i2c-0";
+/** @file i2c_controller.h
+ *  @brief The header file for i2c_controller
+ *
+ *  @author Naing Minn Htet <naingminhtet91@gmail.com>
+ */
+
 
 int i2c_count;
 
@@ -7,7 +12,6 @@ double *v_calib_a;
 double *v_calib_b;
 double *t_calib_a;
 double *t_calib_b;
-
 
 
 int charging_current_addr;
